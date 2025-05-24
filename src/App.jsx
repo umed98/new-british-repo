@@ -33,6 +33,9 @@ import AddNewOrder from "./pages/AdminPanel/orderPages/AddNewOrder.jsx";
 import ProductAddNew from "./pages/AdminPanel/productPages/ProductAddNew.jsx";
 import Uploadpro from "./pages/AdminPanel/productPages/Uploadpro.jsx";
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 // Component to handle layout
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -117,6 +120,7 @@ useEffect(() => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/reset-success" element={<ResetSuccess />} />
       </Routes>
+      <ToastContainer position="top-right" autoClose={3000} />
     </Layout>
   );
 }

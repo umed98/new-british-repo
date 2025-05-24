@@ -1,6 +1,6 @@
 //Working Properly
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 export default function Uploadpro() {
@@ -169,6 +169,78 @@ export default function Uploadpro() {
     }
   };
 
+  /*------------- Fetching Brand Id ---------------*/
+  const [brands, setBrands] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.tech/api/brands")
+      .then((response) => {
+        if (response.data.status) {
+          setBrands(response.data.data);
+        } else {
+          console.error("Failed to fetch brands:", response.data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching brands:", error);
+      });
+  }, []);
+
+  /*------------- Fetching Category Id ---------------*/
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.tech/api/category")
+      .then((response) => {
+        if (response.data.status) {
+          setCategories(response.data.data);
+        } else {
+          console.error("Failed to fetch categories:", response.data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching categories:", error);
+      });
+  }, []);
+
+  /*------------- Fetching Colors Id ---------------*/
+  const [colors, setColors] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.tech/api/colors")
+      .then((response) => {
+        if (response.data.status) {
+          setColors(response.data.data);
+        } else {
+          console.error("Failed to fetch colors:", response.data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching colors:", error);
+      });
+  }, []);
+
+  /*------------- Fetching Sizes Id ---------------*/
+  const [sizes, setSizes] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.tech/api/sizes")
+      .then((response) => {
+        if (response.data.status) {
+          setSizes(response.data.data);
+        } else {
+          console.error("Failed to fetch sizes:", response.data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching sizes:", error);
+      });
+  }, []);
+
   return (
     <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
       <div className="w-full min-h-[90vh] px-5 pr-5 lg:pr-10 pt-14 lg:pt-6 py-6 bg-[#F7F7F7]">
@@ -192,7 +264,7 @@ export default function Uploadpro() {
 
               <label htmlFor="" className="flex flex-col gap-2">
                 <span className=" text-[16px] font-[500]">Brand ID</span>
-                <input
+                {/* <input
                   type="number"
                   name="brand_id"
                   placeholder="Brand ID"
@@ -200,12 +272,42 @@ export default function Uploadpro() {
                   onChange={handleProductChange}
                   required
                   className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
+                /> */}
+                <div className="relative w-full cursor-pointer">
+                  <select
+                    name="brand_id"
+                    id="brand_id"
+                    className="cursor-pointer w-full pr-10 appearance-none bg-white border border-gray-300 rounded-[8px] px-4 py-2"
+                  >
+                    <option value="">-- Select Brand --</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.id} - {brand.brand_name}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Custom dropdown arrow */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </div>
               </label>
 
               <label htmlFor="" className="flex flex-col gap-2">
                 <span className=" text-[16px] font-[500]">Category ID</span>
-                <input
+                {/* <input
                   type="number"
                   name="category_id"
                   placeholder="Category ID"
@@ -213,7 +315,43 @@ export default function Uploadpro() {
                   onChange={handleProductChange}
                   required
                   className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
+                /> */}
+                <div className="relative w-full">
+                  <select
+                    name="category_id"
+                    id="category_id"
+                    value={product.category_id}
+                    onChange={handleProductChange}
+                    required
+                    className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="" selected disabled>
+                      -- Select Category --
+                    </option>
+                    {categories.map((category) => (
+                      <option className="cursor-pointer" key={category.id} value={category.id}>
+                        {category.id} - {category.category_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Custom dropdown arrow */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </div>
               </label>
 
               <label htmlFor="" className="flex flex-col gap-2">
@@ -301,7 +439,7 @@ export default function Uploadpro() {
                 <div className="w-full flex gap-5">
                   <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
                     <span className=" text-[16px] font-[500]">Color ID</span>
-                    <input
+                    {/* <input
                       type="number"
                       name="color_id"
                       placeholder="Color ID"
@@ -309,12 +447,47 @@ export default function Uploadpro() {
                       onChange={(e) => handleVariantChange(idx, e)}
                       required
                       className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
-                    />
+                    /> */}
+                    <div className="relative w-full">
+                      <select
+                        name="color_id"
+                        value={variant.color_id}
+                        onChange={(e) => handleVariantChange(idx, e)}
+                        required
+                        className="cursor-pointer appearance-none border border-gray-300 rounded-[8px] py-2 px-4 pr-10 w-full mb-2 bg-white text-gray-700"
+                      >
+                        <option value="" selected disabled>
+                          -- Select Color --
+                        </option>
+                        {colors.map((color) => (
+                          <option key={color.id} value={color.id}>
+                            {color.color_name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Custom dropdown arrow */}
+                      <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   </label>
 
                   <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
                     <span className=" text-[16px] font-[500]">Size ID</span>
-                    <input
+                    {/* <input
                       type="number"
                       name="size_id"
                       placeholder="Size ID"
@@ -322,7 +495,40 @@ export default function Uploadpro() {
                       onChange={(e) => handleVariantChange(idx, e)}
                       required
                       className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
-                    />
+                    /> */}
+                    <div className="relative w-full">
+                      <select
+                        name="size_id"
+                        value={variant.size_id}
+                        onChange={(e) => handleVariantChange(idx, e)}
+                        required
+                        className="cursor-pointer appearance-none border border-gray-300 rounded-[8px] py-2 px-4 pr-10 w-full mb-2 bg-white text-gray-700"
+                      >
+                        <option value="">-- Select Size --</option>
+                        {sizes.map((size) => (
+                          <option key={size.id} value={size.id}>
+                            {size.size_label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Custom dropdown arrow */}
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   </label>
                 </div>
 

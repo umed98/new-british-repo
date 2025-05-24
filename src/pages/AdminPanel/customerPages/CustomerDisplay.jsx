@@ -57,7 +57,7 @@ const CustomerDisplay = () => {
   }, [modalOpen]);
 
   const handleNavigate = () => {
-    navigate("/add-product");
+    navigate("/add-customer");
   };
 
   // Helpers
@@ -347,7 +347,7 @@ const CustomerDisplay = () => {
                       fill="white"
                     />
                   </svg>
-                  Add Products
+                  Add Customer
                 </button>
               </div>
             </div>

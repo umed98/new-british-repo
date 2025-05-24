@@ -13,7 +13,7 @@ const ProductDisplay = () => {
   const [statusFilter, setStatusFilter] = useState("All Products");
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 6;
+  const rowsPerPage = 10;
 
   const navigate = useNavigate();
 
@@ -37,7 +37,7 @@ const ProductDisplay = () => {
   }, [modalOpen]);
 
   const handleNavigate = () => {
-    navigate("/add-product");
+    navigate("/product-add-new");
   };
 
   // Helpers

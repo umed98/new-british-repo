@@ -96,7 +96,7 @@ const OrderDetailNew = () => {
                     fill="white"
                   />
                 </svg>
-                Add Products
+                Add Order
               </button>
             </div>
           </div>

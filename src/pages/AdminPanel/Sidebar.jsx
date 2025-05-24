@@ -70,7 +70,7 @@ export default function Sidebar() {
               }`}
               onClick={() => {
                 toggleMenu("order");
-                navigate("/order-list");
+                navigate("/order-display");
               }}
             >
               <span>
@@ -104,7 +104,7 @@ export default function Sidebar() {
                 }`}
                 onClick={() => {
                   toggleMenu("products");
-                  navigate("/product-list");
+                  navigate("/product-display");
                 }}
               >
                 <div className="flex items-center space-x-3">
@@ -171,7 +171,7 @@ export default function Sidebar() {
                 }`}
                 onClick={() => {
                   toggleMenu("customers");
-                  navigate("/customer-list");
+                  navigate("/customer-display");
                 }}
               >
                 <div className="flex items-center space-x-3">
