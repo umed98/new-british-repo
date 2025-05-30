@@ -5,9 +5,10 @@ import axios from "axios";
 
 const CustomerDisplay = () => {
   const [data, setData] = useState([]);
-  const [productToDelete, setProductToDelete] = useState(null);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Products");
@@ -75,7 +76,7 @@ const CustomerDisplay = () => {
 
     if (searchTerm) {
       sortableData = sortableData.filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        item.first_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -128,8 +129,8 @@ const CustomerDisplay = () => {
 
   const handleDelete = (id) => {
     console.log("Deleting:", id);
-    setProductToDelete(id);
     setModalOpen(true);
+    setProductToDelete(id);
   };
 
   const confirmDelete = () => {
@@ -174,7 +175,7 @@ const CustomerDisplay = () => {
           <div className="flex justify-between w-full items-center">
             <h1 className="font-[600] text-[25px] lg:text-[28px] flex items-center gap-3">
               Customer Display{" "}
-              <span
+              {/* <span
                 className={`flex gap-[6px] h-[35px] items-center text-[12px] px-4 border-1 rounded-[40px]  ${
                   statusFilter === "Active"
                     ? "bg-green-100 text-green-700 border-green-700"
@@ -197,7 +198,7 @@ const CustomerDisplay = () => {
                   }`}
                 ></div>
                 {statusFilter}
-              </span>
+              </span> */}
             </h1>
 
             <svg
@@ -252,7 +253,7 @@ const CustomerDisplay = () => {
                     className="w-full bg-transparent text-sm text-[#333] placeholder:text-[#838383] focus:outline-none"
                   />
                 </div>
-                <div className="relative w-[140px]">
+                {/* <div className="relative w-[140px]">
                   <select
                     value={statusFilter}
                     onChange={(e) => {
@@ -307,7 +308,7 @@ const CustomerDisplay = () => {
                       />
                     </svg>
                   </div>
-                </div>
+                </div> */}
               </div>
 
               <div className="flex items-center gap-4">
@@ -356,19 +357,37 @@ const CustomerDisplay = () => {
                 <thead>
                   <tr className="border-b-1 border-[#D6D6D6] text-left">
                     {[
+                      // ["id", "ID"],
+                      // ["name", "Name"],
+                      // ["email", "Email"],
+                      // ["phone", "Phone"],
+                      // ["shipping_address", "Shipping Address"],
+                      // ["billing_address", "Billing Address"],
+                      // ["created_at", "Created At"],
+                      // ["updated_at", "Updated At"],
+                      // ["action", "Action"],
+
                       ["id", "ID"],
-                      ["name", "Name"],
+                      ["is_active", "IS Active"],
+                      // ["title", "Title"],
+                      ["first_name", "Name"],
+                      // ["middle_name", "Middle Name"],
+                      // ["last_name", "Last Name"],
                       ["email", "Email"],
+                      ["alt_email", "Alt Email"],
                       ["phone", "Phone"],
-                      ["shipping_address", "Shipping Address"],
-                      ["billing_address", "Billing Address"],
+                      ["alt_phone", "Alt Phone"],
+                      ["mobile", "Mobile"],
+                      ["alt_mobile", "Alt. Mobile"],
+                      ["dob", "DOB"],
+                      ["gender", "Gender"],
                       ["created_at", "Created At"],
                       ["updated_at", "Updated At"],
                       ["action", "Action"],
                     ].map(([key, label]) => (
                       <th
                         key={key}
-                        className="p-3 px-6 cursor-pointer relative text-[14px] whitespace-nowrap"
+                        className={`p-3 px-6 cursor-pointer relative ${key === "first_name" ? "w-80 min-w-80 max-w-80" : ""} text-[14px] whitespace-nowrap`}
                         onClick={() => handleSort(key)}
                       >
                         {label}
@@ -424,21 +443,49 @@ const CustomerDisplay = () => {
                         <td className="p-3 px-6  whitespace-nowrap">
                           {row.id}
                         </td>
-                        <td className="p-3 px-6  whitespace-nowrap flex items-center gap-3">
-                          <Avatar name={row.name} />
-                          {row.name}
+                        <td className="p-3 px-6  whitespace-nowrap">
+                          {row.is_active}
+                        </td>
+                        {/* <td className="p-3 px-6  whitespace-nowrap">
+                          {row.title}
+                        </td> */}
+                        <td className="p-3 px-6 w-80 min-w-80 max-w-80 whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-3">
+                          <Avatar name={row.first_name} />
+                          <span className="w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
+                          {row.first_name} {row.middle_name} {row.last_name}
+                        </span>
+                        </td>
+                        {/* <td className="p-3 px-6  whitespace-nowrap">
+                          {row.middle_name}
                         </td>
                         <td className="p-3 px-6  whitespace-nowrap">
-                          {row.email}
+                          {row.last_name}
+                        </td> */}
+                        <td className="p-3 px-6 w-50 min-w-50 max-w-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <span className="inline-block select-text" title={row.email}>
+                            {row.email}
+                          </span>
+                        </td>
+                        <td className="p-3 px-6  whitespace-nowrap">
+                          {row.alt_email}
                         </td>
                         <td className="p-3 px-6  whitespace-nowrap">
                           {row.phone}
                         </td>
-                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
-                          {row.shipping_address}
+                        <td className="p-3 px-6  whitespace-nowrap">
+                          {row.alt_phone}
                         </td>
-                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
-                          {row.billing_address}
+                        <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
+                          {row.mobile}
+                        </td>
+                        <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
+                          {row.alt_mobile}
+                        </td>
+                        <td className="p-3 px-6  whitespace-nowrap">
+                          {row.dob}
+                        </td>
+                        <td className="p-3 px-6  whitespace-nowrap">
+                          {row.gender}
                         </td>
                         <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
                           {row.created_at}
@@ -449,9 +496,7 @@ const CustomerDisplay = () => {
                         <td className="p-3 px-6  whitespace-nowrap">
                           <div
                             className="relative flex justify-center"
-                            ref={(el) =>
-                              (dropdownRefs.current[row.postalCode] = el)
-                            }
+                            ref={(el) => (dropdownRefs.current[row.id] = el)}
                           >
                             <button
                               onClick={() =>

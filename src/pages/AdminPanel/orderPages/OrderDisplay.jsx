@@ -59,13 +59,13 @@ const OrderDisplay = () => {
 
     if (searchTerm) {
       sortableData = sortableData.filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        item.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (statusFilter !== "All Orders") {
       sortableData = sortableData.filter(
-        (item) => item.payment_status === statusFilter
+        (item) => item.status === statusFilter
       );
     }
 
@@ -168,6 +168,8 @@ const OrderDisplay = () => {
                   statusFilter === "completed"
                     ? "bg-green-100 text-green-700 border-green-700"
                     : statusFilter === "pending"
+                    ? "bg-yellow-100 text-yellow-600 border-yellow-600"
+                    : statusFilter === "cancel"
                     ? "bg-red-100 text-red-600 border-red-600"
                     : statusFilter === "All Orders"
                     ? "bg-white text-[#4B215F] border-[#4B215F]"
@@ -179,6 +181,8 @@ const OrderDisplay = () => {
                     statusFilter === "completed"
                       ? "  bg-green-700"
                       : statusFilter === "pending"
+                      ? "  bg-yellow-600"
+                      : statusFilter === "cancel"
                       ? "  bg-red-600"
                       : statusFilter === "All Orders"
                       ? "bg-[#4B215F]"
@@ -279,6 +283,16 @@ const OrderDisplay = () => {
                       value="pending"
                     >
                       Pending
+                    </option>
+                    <option
+                      className={`text-[#656565] ${
+                        statusFilter == "Cancel"
+                          ? "bg-[#F9F2AB] text-black"
+                          : "bg-white"
+                      } font-[500]`}
+                      value="cancel"
+                    >
+                      Cancel
                     </option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
@@ -442,7 +456,7 @@ const OrderDisplay = () => {
                                   : ""
                               } rounded-full px-3 pr-8 py-1 text-[12px]`}
                             >
-                                  <option
+                              <option
                                 className="bg-yellow-100 text-yellow-700"
                                 value="pending"
                               >

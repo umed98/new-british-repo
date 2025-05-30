@@ -50,7 +50,7 @@ const Login = () => {
         JSON.stringify({ username: user.username, email: user.email })
       );
 
-      navigate("/users");
+      navigate("/dashboard");
     } catch (err) {
       const message = err.response?.data?.message || "Login failed. Try again.";
       setFieldErrors({ general: message });

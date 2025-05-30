@@ -778,7 +778,7 @@ const UserList = () => {
       </div>
     </div>
      {modalOpen && (
-        <div className="fixed top-0 left-0 z-50 flex justify-center items-center bg-black/50 w-full h-[100%]">
+        <div className="fixed top-0 left-0 z-[999] flex justify-center items-center bg-black/50 w-full h-[100%]">
           <div className="w-[25%] flex flex-col items-center justify-center gap-6 bg-white p-8 shadow-lg rounded-[12px]">
             <svg
               width="100"

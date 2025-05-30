@@ -30,7 +30,7 @@ export default function Sidebar() {
                   : "hover:bg-gray-100"
               }`}
               onClick={() => {
-                toggleMenu("dashboard"), navigate("/home");
+                toggleMenu("dashboard"), navigate("/dashboard");
               }}
             >
               <span>
@@ -130,14 +130,14 @@ export default function Sidebar() {
                     Products
                   </span>
                 </div>
-                {openMenu === "products" ? (
+                {/* {openMenu === "products" ? (
                   <img src={asset.arrowUp} alt="arrowUp" />
                 ) : (
                   <img src={asset.arrowDown} alt="arrowDown" />
-                )}
+                )} */}
               </div>
 
-              {showSubMenu && (
+              {/* {showSubMenu && (
                 <div
                   className={`  mt-2 space-y-2 transform transition-all duration-500 ease-in-out origin-top ${
                     openMenu === "products"
@@ -158,7 +158,7 @@ export default function Sidebar() {
                     Satin Fabric
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
 
             {/* Customer List */}
@@ -195,11 +195,11 @@ export default function Sidebar() {
                     Customer List
                   </span>
                 </div>
-                {openMenu === "customers" ? (
+                {/* {openMenu === "customers" ? (
                   <img src={asset.arrowUp} alt="arrowUp" />
                 ) : (
                   <img src={asset.arrowDown} alt="arrowDown" />
-                )}
+                )} */}
               </div>
             </div>
 
@@ -238,11 +238,11 @@ export default function Sidebar() {
                     User List
                   </span>
                 </div>
-                {openMenu === "users" ? (
+                {/* {openMenu === "users" ? (
                   <img src={asset.arrowUp} alt="arrowUp" />
                 ) : (
                   <img src={asset.arrowDown} alt="arrowDown" />
-                )}
+                )} */}
               </div>
             </div>
           </nav>

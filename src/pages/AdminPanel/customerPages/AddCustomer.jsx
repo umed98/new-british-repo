@@ -1,41 +1,249 @@
 import React, { useState } from "react";
-
-import { asset } from "../../../assets/asset";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const AddCustomer = () => {
-  const [paymentMethod, setPaymentMethod] = useState("credit");
+
+  const navigate = useNavigate();
+  const [notHasBusiness, setNotHasBusiness] = useState(false);
+  const [formData, setFormData] = useState({
+    customer_details: {
+      title: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
+      email: "",
+      dob: "",
+      gender: "",
+      phone_number: "",
+      alternate_phone_number: "",
+      mobile_number: "",
+      alternate_mobile_number: "",
+      billing_addresses: [
+        {
+          address_line_1: "",
+          address_line_2: "",
+          city: "",
+          postal_code: "",
+          country: "",
+        },
+      ],
+      shipping_addresses: [
+        {
+          address_line_1: "",
+          address_line_2: "",
+          city: "",
+          postal_code: "",
+          country: "",
+        },
+      ],
+    },
+    business_details: {
+      business_name: "",
+      business_category: "",
+      business_type: "",
+      website: "",
+      business_email: "",
+      alt_business_email: "",
+      b_phone_number: "",
+      alternate_b_phone_number: "",
+      b_mobile_number: "",
+      alternate_b_mobile_number: "",
+      billing_addresses: [
+        {
+          address_line_1: "",
+          address_line_2: "",
+          city: "",
+          postal_code: "",
+          country: "",
+        },
+      ],
+      shipping_addresses: [
+        {
+          address_line_1: "",
+          address_line_2: "",
+          city: "",
+          postal_code: "",
+          country: "",
+        },
+      ],
+    },
+    payment_details: {
+      selected_methods: [],
+      credit_card: {
+        card_number: "",
+        card_type: "",
+        expiry_date: "",
+        cvv: "",
+      },
+      direct_debit: {
+        name_in_bank: "",
+        bank_name: "",
+        account_number: "",
+        sort_code: "",
+      },
+      credit_days: null,
+    },
+  });
+
+  const handleInputChange = (section, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleNestedAddressChange = (
+    section,
+    addressType,
+    index,
+    field,
+    value
+  ) => {
+    const updatedAddresses = [...formData[section][addressType]];
+    updatedAddresses[index][field] = value;
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [addressType]: updatedAddresses,
+      },
+    }));
+  };
+
+  const addAddress = (section, addressType) => {
+    const updatedAddresses = [...formData[section][addressType]];
+    updatedAddresses.push({
+      address_line_1: "",
+      address_line_2: "",
+      city: "",
+      postal_code: "",
+      country: "",
+    });
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [addressType]: updatedAddresses,
+      },
+    }));
+  };
+
+  const handlePaymentMethodChange = (method) => {
+    setFormData((prev) => {
+      const alreadySelected =
+        prev.payment_details.selected_methods.includes(method);
+      const updatedMethods = alreadySelected
+        ? prev.payment_details.selected_methods.filter((m) => m !== method)
+        : [...prev.payment_details.selected_methods, method];
+      return {
+        ...prev,
+        payment_details: {
+          ...prev.payment_details,
+          selected_methods: updatedMethods,
+        },
+      };
+    });
+  };
+
+  const handlePaymentFieldChange = (method, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      payment_details: {
+        ...prev.payment_details,
+        [method]: {
+          ...prev.payment_details[method],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   try {
+  //     await axios.post("https://britishquilting.fastranking.tech/api/new-customer", formData);
+  //     alert("Form submitted successfully!");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Submission failed.");
+  //   }
+  // };
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const dataToSend = { ...formData };
+
+    if (notHasBusiness) {
+      delete dataToSend.business_details;
+    }
+
+    const response = await axios.post(
+      "https://britishquilting.fastranking.tech/api/new-customer",
+      dataToSend
+    );
+
+    // Check if response is success explicitly
+    if (
+      response.status === 200 ||
+      response.status === 201 ||
+      response.data?.success === true
+    ) {
+      alert("Form submitted successfully!");
+      // navigate("/customer-display");
+    } else {
+      // If response is not OK but no exception thrown
+      const errorMessage =
+        response.data?.message || "Something went wrong during submission.";
+      alert(`Submission failed: ${errorMessage}`);
+    }
+  } catch (err) {
+    console.error("Error:", err);
+
+    const errorMessage =
+      err.response?.data?.message ||
+      err.message ||
+      "An unexpected error occurred.";
+    alert(`Submission failed: ${errorMessage}`);
+  }
+};
+
 
   return (
+    <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
+      <div className="w-full min-h-[90vh] px-5 pr-5 lg:pr-10 py-6 bg-[#F7F7F7]">
+        <h1 className="font-[600] text-[28px]">Add Customer </h1>
 
-      <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
-        <div className="w-full min-h-[90vh] px-5 pr-5 lg:pr-10 py-6 bg-[#F7F7F7]">
-          <h1 className="font-[600] text-[28px]">Add Customer </h1>
-
-          <form>
-            <div className="bg-white flex flex-col rounded-[8px] w-full h-[80%] mt-5 pb-5">
-              <div className="flex justify-between items-center pt-5 px-8">
-                <h2 className="text-[22px] font-[600] ">
-                  Personal Information
-                </h2>
-                <button className="cursor-pointer flex gap-3 items-center justify-center border border-[#4B215F] rounded-[4px] bg-white py-2 px-4 text-[#4B215F]">
-                  <svg
-                    width="20"
-                    height="19"
-                    viewBox="0 0 20 19"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                      d="M19.2505 17.4395C19.6645 17.4395 20.0005 17.7755 20.0005 18.1895C20.0005 18.6035 19.6645 18.9395 19.2505 18.9395H11.9975C11.5835 18.9395 11.2475 18.6035 11.2475 18.1895C11.2475 17.7755 11.5835 17.4395 11.9975 17.4395H19.2505ZM14.6163 0.653643C14.6663 0.692643 16.3393 1.99264 16.3393 1.99264C16.9473 2.35464 17.4223 3.00164 17.6023 3.76764C17.7813 4.52564 17.6513 5.30764 17.2343 5.96864C17.2315 5.97305 17.2287 5.97741 17.2191 5.99037L17.2115 6.00038C17.1439 6.08958 16.8496 6.46164 15.3646 8.32223C15.3508 8.34661 15.3351 8.36945 15.3181 8.39164C15.293 8.42435 15.2658 8.45442 15.2367 8.4818C15.1354 8.60934 15.0284 8.74335 14.9159 8.88424L14.688 9.1697C14.2177 9.75868 13.6599 10.4571 12.9981 11.2855L12.6584 11.7106C11.3807 13.3097 9.74443 15.3572 7.64827 17.9796C7.18927 18.5516 6.50127 18.8846 5.76227 18.8936L2.12327 18.9396H2.11327C1.76627 18.9396 1.46427 18.7016 1.38327 18.3626L0.564274 14.8916C0.395274 14.1726 0.563274 13.4306 1.02427 12.8546L10.4443 1.07264C10.4483 1.06864 10.4513 1.06364 10.4553 1.05964C11.4883 -0.175357 13.3563 -0.357357 14.6163 0.653643ZM9.394 4.787L2.19527 13.7916C2.02427 14.0056 1.96127 14.2816 2.02427 14.5466L2.70527 17.4316L5.74427 17.3936C6.03327 17.3906 6.30027 17.2616 6.47727 17.0416C7.38876 15.9012 8.53433 14.4679 9.71213 12.994L10.1288 12.4726L10.5462 11.9502C11.6508 10.5679 12.7421 9.20207 13.6551 8.05886L9.394 4.787ZM11.6103 2.01664L10.331 3.615L14.5918 6.88593C15.4119 5.8587 15.9514 5.18214 16.0013 5.11764C16.1653 4.85164 16.2293 4.47564 16.1433 4.11364C16.0553 3.74264 15.8243 3.42764 15.4913 3.22664C15.4203 3.17764 13.7353 1.86964 13.6833 1.82864C13.0493 1.32064 12.1243 1.40864 11.6103 2.01664Z"
-                      fill="#4B215F"
-                    />
-                  </svg>
-                  Edit
-                </button>
-              </div>
-              <div className="flex gap-4 items-center py-3 px-8">
+        <form onSubmit={handleSubmit}>
+          <div className="bg-white flex flex-col rounded-[8px] w-full h-[80%] mt-5 pb-5">
+            {/* <div className="w-full flex justify-end pt-5 pr-5">
+              <button
+                type="button"
+                className="cursor-pointer w-24 text-right flex gap-3 items-center justify-center border border-[#4B215F] rounded-[4px] bg-white py-2 px-4 text-[#4B215F]"
+              >
+                <svg
+                  width="20"
+                  height="19"
+                  viewBox="0 0 20 19"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M19.2505 17.4395C19.6645 17.4395 20.0005 17.7755 20.0005 18.1895C20.0005 18.6035 19.6645 18.9395 19.2505 18.9395H11.9975C11.5835 18.9395 11.2475 18.6035 11.2475 18.1895C11.2475 17.7755 11.5835 17.4395 11.9975 17.4395H19.2505ZM14.6163 0.653643C14.6663 0.692643 16.3393 1.99264 16.3393 1.99264C16.9473 2.35464 17.4223 3.00164 17.6023 3.76764C17.7813 4.52564 17.6513 5.30764 17.2343 5.96864C17.2315 5.97305 17.2287 5.97741 17.2191 5.99037L17.2115 6.00038C17.1439 6.08958 16.8496 6.46164 15.3646 8.32223C15.3508 8.34661 15.3351 8.36945 15.3181 8.39164C15.293 8.42435 15.2658 8.45442 15.2367 8.4818C15.1354 8.60934 15.0284 8.74335 14.9159 8.88424L14.688 9.1697C14.2177 9.75868 13.6599 10.4571 12.9981 11.2855L12.6584 11.7106C11.3807 13.3097 9.74443 15.3572 7.64827 17.9796C7.18927 18.5516 6.50127 18.8846 5.76227 18.8936L2.12327 18.9396H2.11327C1.76627 18.9396 1.46427 18.7016 1.38327 18.3626L0.564274 14.8916C0.395274 14.1726 0.563274 13.4306 1.02427 12.8546L10.4443 1.07264C10.4483 1.06864 10.4513 1.06364 10.4553 1.05964C11.4883 -0.175357 13.3563 -0.357357 14.6163 0.653643ZM9.394 4.787L2.19527 13.7916C2.02427 14.0056 1.96127 14.2816 2.02427 14.5466L2.70527 17.4316L5.74427 17.3936C6.03327 17.3906 6.30027 17.2616 6.47727 17.0416C7.38876 15.9012 8.53433 14.4679 9.71213 12.994L10.1288 12.4726L10.5462 11.9502C11.6508 10.5679 12.7421 9.20207 13.6551 8.05886L9.394 4.787ZM11.6103 2.01664L10.331 3.615L14.5918 6.88593C15.4119 5.8587 15.9514 5.18214 16.0013 5.11764C16.1653 4.85164 16.2293 4.47564 16.1433 4.11364C16.0553 3.74264 15.8243 3.42764 15.4913 3.22664C15.4203 3.17764 13.7353 1.86964 13.6833 1.82864C13.0493 1.32064 12.1243 1.40864 11.6103 2.01664Z"
+                    fill="#4B215F"
+                  />
+                </svg>
+                Edit
+              </button>
+            </div> */}
+            {/* <div className="flex gap-4 items-center py-3 px-8">
                 <img
                   src={asset.demo}
                   alt="profile"
@@ -80,245 +288,1526 @@ const AddCustomer = () => {
                   </svg>
                   Remove
                 </button>
-              </div>
+              </div> */}
+           <div className="flex items-center gap-3 pt-5 px-8">
+              <input
+                checked={notHasBusiness}
+                onChange={(e) => setNotHasBusiness(e.target.checked)}
+                className="accent-[#4B215F] cursor-pointer"
+                type="checkbox"
+              />
+              <span className="text-[16px] font-[500] text-[#4B215F]">
+                Not a Business 
+              </span>
+            </div>
 
-              <div className="pb-6 px-8">
-                <div className="w-full pt-5 flex gap-6 ">
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="full_name" className="font-[500]">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      name="full_name"
-                      placeholder="Enter full name"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="email_address" className="font-[500]">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Enter your email"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
+            {/* Business Details start*/}
+            {!notHasBusiness && (
+              <div className=" border-b-1 border-gray-300 pb-8 px-8">
+                <div className="flex justify-between items-center pt-5">
+                  <h2 className="text-[22px] font-[600] ">Business Details</h2>
                 </div>
-                <div className="w-full pt-5 flex gap-6 ">
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="phone" className="font-[500]">
-                      Phone Number
-                    </label>
-                    <input
-                      type="phone"
-                      name="phone_number"
-                      placeholder="Enter your number"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="billing_address" className="font-[500]">
-                      Billing Address
+                <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 pt-5 gap-6 ">
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="business_name"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Name<span className="text-red-500">*</span> 
                     </label>
                     <input
                       type="text"
-                      name="billing_address"
-                      placeholder="Enter your address"
+                      name="business_name"
+                      id="business_name"
+                      placeholder="Enter business name"
+                      value={formData.business_details.business_name}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "business_name",
+                          e.target.value
+                        )
+                      }
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
                   </div>
-                </div>
-              </div>
-              <div className=" border-t-1 border-[#dadada] px-8">
-                <h2 className="text-[22px] font-[600] pt-4">
-                  Product Information
-                </h2>
-                <div className="w-full pt-5 flex gap-6 ">
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="order_Id" className="font-[500]">
-                      Order ID
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="business_category"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Category<span className="text-red-500">*</span> 
                     </label>
-                    <input
-                      type="text"
-                      name="order_id"
-                      placeholder="Enter order ID"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="total_product" className="font-[500]">
-                      Total Product
-                    </label>
-                    <input
-                      type="text"
-                      name="total_product"
-                      placeholder="Enter total products"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
-                </div>
-                <div className="w-full pt-5 flex gap-6 ">
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="price" className="font-[500]">
-                      Price
-                    </label>
-                    <input
-                      type="text"
-                      name="price"
-                      placeholder="Enter price"
-                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    />
-                  </div>
-                  <div className="w-[50%] flex flex-col gap-2">
-                    <label htmlFor="status" className="font-[500]">
-                      Status
-                    </label>
-                    <div className="relative w-full">
-                      <select name="status" className="appearance-none py-2 px-4 pr-5 lg:pr-10 border border-[#C5C5C5] text-[#969696] rounded-[8px] w-full ">
-                        <option value="Select Status" selected disabled>
-                          Select Status
+                    <div className="relative">
+                      <select
+                        className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        name="business_category"
+                        id="business_category"
+                        value={formData.business_details.business_category}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "business_details",
+                            "business_category",
+                            e.target.value
+                          )
+                        }
+                      >
+                        <option
+                          value=""
+                          selected
+                          disabled
+                        >
+                          Select Business Category
                         </option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
+                        <option value="a">a</option>
+                        <option value="b">b</option>
+                        <option value="c">c</option>
                       </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      {/* Custom dropdown arrow */}
+                      <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
                         <svg
-                          className="h-4 w-6 text-black"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
                         >
                           <path
-                            fillRule="evenodd"
-                            d="M10 12a.75.75 0 01-.53-.22l-4-4a.75.75 0 111.06-1.06L10 10.19l3.47-3.47a.75.75 0 111.06 1.06l-4 4A.75.75 0 0110 12z"
-                            clipRule="evenodd"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 9l-7 7-7-7"
                           />
                         </svg>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="border border-[#dadada] rounded-lg p-6  m-8">
-                <h2 className="text-[22px] font-semibold mb-4">
-                  Payment method
-                </h2>
-
-                {/* Payment Options */}
-                <div className="flex items-center gap-6 mb-6">
-                  <label className={`flex items-center gap-2 font-[500] cursor-pointer ${(paymentMethod === "credit") ? "text-black" : "text-[#717984]"}`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="credit"
-                      checked={paymentMethod === "credit"}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="accent-[#4B215F]"
-                    />
-                    Credit Card
-                  </label>
-
-                  <label className={`flex items-center gap-2 font-[500] cursor-pointer ${(paymentMethod === "cash") ? "text-black" : "text-[#717984]"}`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="cash"
-                      checked={paymentMethod === "cash"}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="accent-[#4B215F]"
-                    />
-                    Cash
-                  </label>
-
-                  <label className={`flex items-center gap-2 font-[500] cursor-pointer ${(paymentMethod === "online") ? "text-black" : "text-[#717984]"}`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="online"
-                      checked={paymentMethod === "online"}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="accent-[#4B215F]"
-                    />
-                    Online
-                  </label>
-                </div>
-
-                {/* Form Fields */}
-                {paymentMethod === "credit" && (
-                  <div className="space-y-4 lg:w-[90%] w-[100%]">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block  font-medium mb-1">
-                          Card Holder’s Name
-                        </label>
-                        <input
-                          type="text"
-                          name="card_holder"
-                          placeholder="Enter Card holder name"
-                          className="w-full p-2 border border-[#C0C0C0] rounded "
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block  font-medium mb-1">
-                          Card Number
-                        </label>
-                        <input
-                          type="text"
-                          name="card_number"
-                          placeholder="Enter card number"
-                          className="w-full p-2 border border-[#C0C0C0] rounded "
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block  font-medium mb-1">
-                          Expire Date
-                        </label>
-                        <input
-                          type="date"
-                          name="expiry_date"
-                          className="w-full p-2 border border-[#C0C0C0] rounded "
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block font-medium mb-1">CVV</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            name="cvv"
-                            placeholder="Enter CVV number"
-                            className="w-full p-2 border border-[#C0C0C0] rounded"
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="business_type"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Type<span className="text-red-500">*</span> 
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="business_type"
+                        id="business_type"
+                        value={formData.business_details.business_type}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "business_details",
+                            "business_type",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      >
+                        <option value="" selected disabled>
+                          Select Business Type
+                        </option>
+                        <option value="x">x</option>
+                        <option value="y">y</option>
+                        <option value="z">z</option>
+                      </select>
+                      {/* Custom dropdown arrow */}
+                      <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 9l-7 7-7-7"
                           />
-                          <span className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-500 text-sm cursor-help">
-                            ⓘ
-                          </span>
-                        </div>
+                        </svg>
                       </div>
                     </div>
                   </div>
-                )}
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="website"
+                      className="font-[500] text-gray-700"
+                    >
+                      Website<span className="text-red-500">*</span> 
+                    </label>
+                    <input
+                      type="text"
+                      name="website"
+                      id="website"
+                      placeholder="Enter website name"
+                      value={formData.business_details.website}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "website",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="business_phone"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Email<span className="text-red-500">*</span> 
+                    </label>
+                    <input
+                      type="email"
+                      name="business_email"
+                      id="business_email"
+                      placeholder="Enter business email"
+                      value={formData.business_details.business_email}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "business_email",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="business_email"
+                      className="font-[500] text-gray-700"
+                    >
+                      Alt. Business Email
+                    </label>
+                    <input
+                      type="email"
+                      name="alt_business_email"
+                      id="alt_business_email"
+                      placeholder="Enter alt. business email"
+                      value={formData.business_details.alt_business_email}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "alt_business_email",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                </div>
+                <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="phone_number"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Phone Number<span className="text-red-500">*</span> 
+                    </label>
+                    <input
+                      type="number"
+                      name="b_phone_number"
+                      id="b_phone_number"
+                      placeholder="Enter business phone number"
+                      value={formData.business_details.b_phone_number}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "b_phone_number",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="alternate_phone_number"
+                      className="font-[500] text-gray-700"
+                    >
+                      Alt. Business Phone Number
+                    </label>
+                    <input
+                      type="number"
+                      name="alternate_b_phone_number"
+                      id="alternate_b_phone_number"
+                      placeholder="Enter alternate phone number"
+                      value={formData.business_details.alternate_b_phone_number}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "alternate_b_phone_number",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="mobile_number"
+                      className="font-[500] text-gray-700"
+                    >
+                      Business Mobile Number<span className="text-red-500">*</span> 
+                    </label>
+                    <input
+                      type="number"
+                      name="b_mobile_number"
+                      id="b_mobile_number"
+                      placeholder="Enter business mobile number"
+                      value={formData.business_details.b_mobile_number}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "b_mobile_number",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="alternate_mobile_number"
+                      className="font-[500] text-gray-700"
+                    >
+                      Alt. Business Mobile Number
+                    </label>
+                    <input
+                      type="number"
+                      name="alternate_b_mobile_number"
+                      id="alternate_b_mobile_number"
+                      placeholder="Enter alternate business mobile number"
+                      value={
+                        formData.business_details.alternate_b_mobile_number
+                      }
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "alternate_b_mobile_number",
+                          e.target.value
+                        )
+                      }
+                      className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    />
+                  </div>
+                </div>
+
+                {/* Address Details start*/}
+                <div className=" mt-3">
+                  <h2 className="mt-5 text-[18px] font-[500]">
+                    Billing Address
+                  </h2>
+                  <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_1"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 1<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_1"
+                        id="bus_b_address_line_1"
+                        placeholder="Enter address 1"
+                        value={
+                          formData.business_details.billing_addresses[0]
+                            .address_line_1
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "address_line_1",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_2"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 2<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_2"
+                        id="b_address_line_2"
+                        placeholder="Enter address 2"
+                        value={
+                          formData.business_details.billing_addresses[0]
+                            .address_line_2
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "address_line_2",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                  </div>
+                  <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="city"
+                        className="font-[500] text-gray-700"
+                      >
+                        City<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        placeholder="Enter your city"
+                        value={
+                          formData.business_details.billing_addresses[0].city
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "city",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="postal_code"
+                        className="font-[500] text-gray-700"
+                      >
+                        Postal Code<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="postal_code"
+                        placeholder="Enter postal code"
+                        value={
+                          formData.business_details.billing_addresses[0]
+                            .postal_code
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "postal_code",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="country"
+                        className="font-[500] text-gray-700"
+                      >
+                        Country<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="country"
+                        placeholder="Enter postal code"
+                        value={
+                          formData.business_details.billing_addresses[0].country
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "country",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 pb-8 ">
+                  <h2 className="mt-5 text-[18px] font-[500]">
+                    Shipping Address
+                  </h2>
+                  <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_1"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 1<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_1"
+                        placeholder="Enter address 1"
+                        value={
+                          formData.business_details.shipping_addresses[0]
+                            .address_line_1
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "address_line_1",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_2"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 2<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_2"
+                        placeholder="Enter address 2"
+                        value={
+                          formData.business_details.shipping_addresses[0]
+                            .address_line_2
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "address_line_2",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                  </div>
+                  <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="city"
+                        className="font-[500] text-gray-700"
+                      >
+                        City<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        placeholder="Enter your city"
+                        value={
+                          formData.business_details.shipping_addresses[0].city
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "city",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="postal_code"
+                        className="font-[500] text-gray-700"
+                      >
+                        Postal Code<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="postal_code"
+                        placeholder="Enter postal code"
+                        value={
+                          formData.business_details.shipping_addresses[0]
+                            .postal_code
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "postal_code",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="country"
+                        className="font-[500] text-gray-700"
+                      >
+                        Country<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="country"
+                        placeholder="Enter postal code"
+                        value={
+                          formData.business_details.shipping_addresses[0]
+                            .country
+                        }
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "country",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Address Details ends*/}
+              </div>
+            )}
+            {/* Business Details ends*/}
+
+            {/* Customer Info Start */}
+            <div className="px-8 pt-4 pb-8 border-b-1 border-gray-300">
+              <h2 className="text-[22px] font-[600] pt-4">Customer Details</h2>
+              <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="title" className="font-[500] text-gray-700">
+                    Title<span className="text-red-500">*</span> 
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      name="title"
+                      id="title"
+                      value={formData.customer_details.title}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "customer_details",
+                          "title",
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="select_title" selected disabled>
+                        Select Title
+                      </option>
+                      <option value="Mr">Mr.</option>
+                      <option value="Ms">Ms.</option>
+                      <option value="Mrs">Mrs.</option>
+                      <option value="Dr">Dr.</option>
+                    </select>
+                    {/* Custom dropdown arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="first_name"
+                    className="font-[500] text-gray-700"
+                  >
+                    First Name<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={formData.customer_details.first_name}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "first_name",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter first name"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="middle_name"
+                    className="font-[500] text-gray-700"
+                  >
+                    Middle Name<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="middle_name"
+                    value={formData.customer_details.middle_name}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "middle_name",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter middle name"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="last_name"
+                    className="font-[500] text-gray-700"
+                  >
+                    Last Name<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.customer_details.last_name}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "last_name",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter last name"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="price" className="font-[500] text-gray-700">
+                    Email<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.customer_details.email}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "email",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter your email"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="price" className="font-[500] text-gray-700">
+                    Alt. Email
+                  </label>
+                  <input
+                    type="email"
+                    name="alt_email"
+                    placeholder="Enter your alt. email"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className=" flex flex-col gap-2">
+                  <label htmlFor="dob" className="font-[500] text-gray-700">
+                    Date Of Birth<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="date"
+                    name="dob"
+                    id="dob"
+                    value={formData.customer_details.dob}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "dob",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="gender" className="font-[500] text-gray-700">
+                    Gender<span className="text-red-500">*</span> 
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      name="gender"
+                      id="gender"
+                      value={formData.customer_details.gender}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "customer_details",
+                          "gender",
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="" selected disabled>
+                        Select Gender
+                      </option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {/* Custom dropdown arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="phone_number"
+                    className="font-[500] text-gray-700"
+                  >
+                    Phone Number<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="number"
+                    name="phone_number"
+                    id="phone_number"
+                    value={formData.customer_details.phone_number}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "phone_number",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter phone number"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="alternate_phone_number"
+                    className="font-[500] text-gray-700"
+                  >
+                    Alt. Phone Number
+                  </label>
+                  <input
+                    type="number"
+                    name="alternate_phone_number"
+                    id="alternate_phone_number"
+                    value={formData.customer_details.alternate_phone_number}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "alternate_phone_number",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter alternate phone number"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="mobile_number"
+                    className="font-[500] text-gray-700"
+                  >
+                    Mobile Number<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="number"
+                    name="mobile_number"
+                    id="mobile_number"
+                    value={formData.customer_details.mobile_number}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "mobile_number",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter mobile number"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="alternate_mobile_number"
+                    className="font-[500] text-gray-700"
+                  >
+                    Alt. Mobile Number
+                  </label>
+                  <input
+                    type="number"
+                    name="alternate_mobile_number"
+                    id="alternate_mobile_number"
+                    value={formData.customer_details.alternate_mobile_number}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "alternate_mobile_number",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter alternate mobile number"
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
               </div>
             </div>
-            <div className="w-full py-5 pb-8 flex justify-end gap-5">
-            <button type="reset" className="rounded-[40px] text-[#4B215F] font-[500] text-[18px] border border-[#4B215F] py-2 px-12 cursor-pointer hover:bg-white">
-                Cancel
-              </button>
-              <button type="submit" className="rounded-[40px] bg-[#4B215F] font-[500] text-[18px] text-white py-2 px-12 cursor-pointer hover:bg-[#704385]">
-                Save
-              </button>
+            {/* Customer Info Ends */}
+
+            {/* Address Details start*/}
+            <div className="px-8 mt-3">
+              <h2 className="mt-5 text-[18px] font-[500]">Billing Address</h2>
+              <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="address_line_1"
+                    className="font-[500] text-gray-700"
+                  >
+                    Address Line 1<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="address_line_1"
+                    placeholder="Enter address 1"
+                    value={
+                      formData.customer_details.billing_addresses[0]
+                        .address_line_1
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "address_line_1",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="address_line_2"
+                    className="font-[500] text-gray-700"
+                  >
+                    Address Line 2<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="address_line_2"
+                    placeholder="Enter address 2"
+                    value={
+                      formData.customer_details.billing_addresses[0]
+                        .address_line_2
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "address_line_2",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+              </div>
+              <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="city" className="font-[500] text-gray-700">
+                    City<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="Enter your city"
+                    value={formData.customer_details.billing_addresses[0].city}
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "city",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="postal_code"
+                    className="font-[500] text-gray-700"
+                  >
+                    Postal Code <span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="postal_code"
+                    placeholder="Enter postal code"
+                    value={
+                      formData.customer_details.billing_addresses[0].postal_code
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "postal_code",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="country" className="font-[500] text-gray-700">
+                    Country<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="country"
+                    placeholder="Enter postal code"
+                    value={
+                      formData.customer_details.billing_addresses[0].country
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "country",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+              </div>
             </div>
-          </form>
-        </div>
+            <div className="mt-3 px-8 pb-8 ">
+              <h2 className="mt-5 text-[18px] font-[500]">Shipping Address</h2>
+              <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="address_line_1"
+                    className="font-[500] text-gray-700"
+                  >
+                    Address Line 1<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="address_line_1"
+                    placeholder="Enter address 1"
+                    value={
+                      formData.customer_details.shipping_addresses[0]
+                        .address_line_1
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "address_line_1",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="address_line_2"
+                    className="font-[500] text-gray-700"
+                  >
+                    Address Line 2<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="address_line_2"
+                    placeholder="Enter address 2"
+                    value={
+                      formData.customer_details.shipping_addresses[0]
+                        .address_line_2
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "address_line_2",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+              </div>
+              <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="city" className="font-[500] text-gray-700">
+                    City<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="Enter your city"
+                    value={formData.customer_details.shipping_addresses[0].city}
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "city",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="postal_code"
+                    className="font-[500] text-gray-700"
+                  >
+                    Postal Code<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="postal_code"
+                    placeholder="Enter postal code"
+                    value={
+                      formData.customer_details.shipping_addresses[0]
+                        .postal_code
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "postal_code",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="country" className="font-[500] text-gray-700">
+                    Country<span className="text-red-500">*</span> 
+                  </label>
+                  <input
+                    type="text"
+                    name="country"
+                    placeholder="Enter postal code"
+                    value={
+                      formData.customer_details.shipping_addresses[0].country
+                    }
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "country",
+                        e.target.value
+                      )
+                    }
+                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Address Details ends*/}
+
+ 
+
+
+            {/* Payment Section */}
+            <div className="border border-[#dadada] rounded-lg p-6 m-8 bg-[#f7fff3]">
+              <h2 className="text-[22px] font-semibold mb-4">Payment method</h2>
+
+              {/* <div className="flex items-center gap-6 mb-6">
+                {["credit_card", "debit", "cheque", "cash", "credit"].map(
+                  (method) => (
+                    <label
+                      key={method}
+                      className={`flex items-center gap-2 font-[500] cursor-pointer ${
+                        paymentMethods.includes(method)
+                          ? "text-black"
+                          : "text-[#717984]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        value={method}
+                        checked={paymentMethods.includes(method)}
+                        onChange={() => handlePaymentChange(method)}
+                        className="accent-[#4B215F]"
+                      />
+                      {method === "credit_card"
+                        ? "Credit Card"
+                        : method === "debit"
+                        ? "Direct Debit"
+                        : method === "cheque"
+                        ? "Cheque"
+                        : method === "credit"
+                        ? "Credit"
+                        : "Cash"}
+                    </label>
+                  )
+                )}
+              </div> */}
+
+              <div className="mb-4 flex items-center gap-5">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    onChange={() => handlePaymentMethodChange("credit_card")}
+                    checked={formData.payment_details.selected_methods.includes(
+                      "credit_card"
+                    )}
+                  />{" "}
+                  Credit Card
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    onChange={() => handlePaymentMethodChange("direct_debit")}
+                    checked={formData.payment_details.selected_methods.includes(
+                      "direct_debit"
+                    )}
+                  />{" "}
+                  Direct Debit
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    onChange={() => handlePaymentMethodChange("cash")}
+                    checked={formData.payment_details.selected_methods.includes(
+                      "cash"
+                    )}
+                  />{" "}
+                  Cash
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    onChange={() => handlePaymentMethodChange("cheque")}
+                    checked={formData.payment_details.selected_methods.includes(
+                      "cheque"
+                    )}
+                  />{" "}
+                  Cheque
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    onChange={() => handlePaymentMethodChange("credit")}
+                    checked={formData.payment_details.selected_methods.includes(
+                      "credit"
+                    )}
+                  />{" "}
+                  Credit
+                </label>
+              </div>
+
+              {/* Credit Card Section */}
+              {formData.payment_details.selected_methods.includes(
+                "credit_card"
+              ) && (
+                <div className="space-y-4 lg:w-[90%] w-[100%] mb-6">
+                  <h3 className="font-semibold text-lg">Credit Card Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Card Number<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="card_number"
+                        placeholder="Enter card number"
+                        value={formData.payment_details.credit_card.card_number}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "credit_card",
+                            "card_number",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Card Type<span className="text-red-500">*</span> 
+                      </label>
+                      <select
+                        name="card_type"
+                        value={formData.payment_details.credit_card.card_type}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "credit_card",
+                            "card_type",
+                            e.target.value
+                          )
+                        }
+                        className="py-2 px-4 border-1 bg-white appearance-none border-[#C5C5C5] rounded-[8px] w-full"
+                      >
+                        <option value="" disabled selected>
+                         Select Card Type
+                        </option>
+                        <option value="Visa">Visa</option>
+                        <option value="Master">Master</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Expire Date<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="date"
+                        name="expiry_date"
+                        value={formData.payment_details.credit_card.expiry_date}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "credit_card",
+                            "expiry_date",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1">CVV</label>
+                      <input
+                        type="text"
+                        name="cvv"
+                        placeholder="Enter CVV number"
+                        value={formData.payment_details.credit_card.cvv}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "credit_card",
+                            "cvv",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Debit Section */}
+              {formData.payment_details.selected_methods.includes(
+                "direct_debit"
+              ) && (
+                <div className="space-y-4 lg:w-[90%] w-[100%] mb-6">
+                  <h3 className="font-semibold text-lg">
+                    Direct Debit Details
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Name in the Bank<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="name_in_bank"
+                        placeholder="Enter name in bank"
+                        value={
+                          formData.payment_details.direct_debit.name_in_bank
+                        }
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "direct_debit",
+                            "name_in_bank",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Bank Name<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="bank_name"
+                        placeholder="Enter bank name"
+                        value={formData.payment_details.direct_debit.bank_name}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "direct_debit",
+                            "bank_name",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Account Number<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="number"
+                        name="account_number"
+                        placeholder="Enter account number"
+                        value={
+                          formData.payment_details.direct_debit.account_number
+                        }
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "direct_debit",
+                            "account_number",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1">
+                        Sort Code<span className="text-red-500">*</span> 
+                      </label>
+                      <input
+                        type="text"
+                        name="sort_code"
+                        placeholder="Enter sort code"
+                        value={formData.payment_details.direct_debit.sort_code}
+                        onChange={(e) =>
+                          handlePaymentFieldChange(
+                            "direct_debit",
+                            "sort_code",
+                            e.target.value
+                          )
+                        }
+                        className="w-full py-2 px-4 border border-[#C0C0C0] rounded-[8px] bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.payment_details.selected_methods.includes("credit") && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="credit" className="font-[500]">
+                    Credit<span className="text-red-500">*</span> 
+                  </label>
+                  <div className="relative w-[40%]">
+                    <select
+                      className="py-2 px-4 border-1 bg-white appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      name="credit"
+                      id="credit"
+                      value={formData.payment_details.credit_days}
+                      onChange={(e) =>
+                        handlePaymentFieldChange(
+                          "credit_days",
+                          null,
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="select credit" selected disabled>
+                        Select Credit
+                      </option>
+                      <option value="30" selected>30</option>
+                    </select>
+                    {/* Custom dropdown arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 top-0 right-0 flex items-center px-3 text-gray-500">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="w-full py-5 pb-8 flex justify-end gap-5">
+            <button
+              type="reset"
+              className="rounded-[40px] text-[#4B215F] font-[500] text-[18px] border border-[#4B215F] py-2 px-12 cursor-pointer hover:bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-[40px] bg-[#4B215F] font-[500] text-[18px] text-white py-2 px-12 cursor-pointer hover:bg-[#704385]"
+            >
+              Save
+            </button>
+          </div>
+        </form>
       </div>
-  
+    </div>
   );
 };
 

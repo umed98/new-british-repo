@@ -329,7 +329,11 @@ export default function Uploadpro() {
                       -- Select Category --
                     </option>
                     {categories.map((category) => (
-                      <option className="cursor-pointer" key={category.id} value={category.id}>
+                      <option
+                        className="cursor-pointer"
+                        key={category.id}
+                        value={category.id}
+                      >
                         {category.id} - {category.category_name}
                       </option>
                     ))}
@@ -485,17 +489,8 @@ export default function Uploadpro() {
                     </div>
                   </label>
 
-                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                  <div htmlFor="" className="flex flex-col gap-2 w-[50%]">
                     <span className=" text-[16px] font-[500]">Size ID</span>
-                    {/* <input
-                      type="number"
-                      name="size_id"
-                      placeholder="Size ID"
-                      value={variant.size_id}
-                      onChange={(e) => handleVariantChange(idx, e)}
-                      required
-                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
-                    /> */}
                     <div className="relative w-full">
                       <select
                         name="size_id"
@@ -529,7 +524,36 @@ export default function Uploadpro() {
                         </svg>
                       </div>
                     </div>
-                  </label>
+                    <div className="flex flex-col gap-4 w-full">
+                      <div className="flex gap-3 w-full items-center">
+                        <span className="font-[500]">xc - </span>
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="number"
+                            name="size_1"
+                            placeholder="quantity"
+                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
+                          />
+                        </div>
+                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">Remove</button>
+                      </div>
+
+                      <div className="flex gap-3 items-center">
+                        <span className="font-[500]">l - </span>
+                        <div className="flex flex-col gap-1">
+                         
+                          <input
+                            type="number"
+                            name="size_1"
+                             placeholder="quantity"
+                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
+                          />
+                        </div>
+                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">Remove</button>
+                      </div>
+                    <button className="text-white bg-green-500 rounded-[8px] py-2 px-6 w-50 font-[500]">Add more size & qty.</button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="w-full flex gap-5">
