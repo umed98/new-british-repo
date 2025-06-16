@@ -5,7 +5,6 @@ import axios from "axios";
 
 const CustomerDisplay = () => {
   const [data, setData] = useState([]);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -14,7 +13,7 @@ const CustomerDisplay = () => {
   const [statusFilter, setStatusFilter] = useState("All Products");
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 6;
+  const [rowsPerPage, setRowsPerPage] = useState(10); // initially 10 rows per page
 
   const navigate = useNavigate();
   const dropdownRefs = useRef({});
@@ -25,7 +24,6 @@ const CustomerDisplay = () => {
       const isClickInsideAny = Object.values(dropdownRefs.current).some(
         (ref) => ref && ref.contains(event.target)
       );
-
       if (!isClickInsideAny) {
         setOpenDropdownId(false);
       }
@@ -37,6 +35,7 @@ const CustomerDisplay = () => {
     };
   }, []);
 
+  // Fetch data
   useEffect(() => {
     const getData = async () => {
       try {
@@ -53,6 +52,7 @@ const CustomerDisplay = () => {
     getData();
   }, []);
 
+  // Prevent scroll when modal open
   useEffect(() => {
     document.body.style.overflow = modalOpen ? "hidden" : "auto";
   }, [modalOpen]);
@@ -65,6 +65,7 @@ const CustomerDisplay = () => {
   const parsePrice = (price) => parseFloat(price.replace(/[^0-9.]/g, "")) || 0;
   const parseDiscount = (discount) =>
     parseFloat(discount.replace("%", "")) || 0;
+
   const parseDate = (dateStr) => {
     const [day, month, year] = dateStr.split("/").map(Number);
     return new Date(year, month - 1, day);
@@ -74,18 +75,21 @@ const CustomerDisplay = () => {
   const sortedData = useMemo(() => {
     let sortableData = [...data];
 
+    // Search filter
     if (searchTerm) {
       sortableData = sortableData.filter((item) =>
         item.first_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
+    // Status filter
     if (statusFilter !== "All Products") {
       sortableData = sortableData.filter(
         (item) => item.status === statusFilter
       );
     }
 
+    // Manual sort
     if (sortConfig.key) {
       sortableData.sort((a, b) => {
         let valA = a[sortConfig.key];
@@ -106,6 +110,11 @@ const CustomerDisplay = () => {
         if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
+    } else {
+      // Default sort: latest created_at first
+      sortableData.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
     }
 
     return sortableData;
@@ -116,7 +125,6 @@ const CustomerDisplay = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
   const totalPages = Math.ceil(sortedData.length / rowsPerPage);
 
   const handleSort = (key) => {
@@ -125,6 +133,15 @@ const CustomerDisplay = () => {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+  };
+
+  const handleEdit = (id) => {
+    console.log(id);
+  };
+
+  const handleView = (id) => {
+    console.log(id);
+    navigate(`/customer-info/${id}`);
   };
 
   const handleDelete = (id) => {
@@ -141,11 +158,14 @@ const CustomerDisplay = () => {
   };
 
   const Avatar = ({ name }) => {
-    // Generate a random HSL color
+    // Generate a random HSL color once
     const randomColor = React.useMemo(() => {
-      const hue = Math.floor(Math.random() * 360); // 0 to 359
-      return `hsl(${hue}, 70%, 60%)`; // soft, pleasant colors
-    }, []); // only generated once per render
+      const hue = Math.floor(Math.random() * 360);
+      return `hsl(${hue}, 70%, 60%)`;
+    }, []);
+
+    // Safely get the first character or fallback to "?"
+    const initial = name?.trim()?.[0]?.toUpperCase() || "?";
 
     return (
       <div
@@ -163,7 +183,7 @@ const CustomerDisplay = () => {
           textTransform: "uppercase",
         }}
       >
-        {name[0]}
+        {initial}
       </div>
     );
   };
@@ -252,6 +272,42 @@ const CustomerDisplay = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-transparent text-sm text-[#333] placeholder:text-[#838383] focus:outline-none"
                   />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative  w-[100px] max-w-[140px]">
+                    <select
+                      id="rowsPerPage"
+                      value={rowsPerPage}
+                      onChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value));
+                        setCurrentPage(1); // reset to page 1 on rows change
+                      }}
+                      className="border-1 border-[#D3D3D3] outline-none focus-within:ring-1 focus-within:ring-[#4B215F] w-[100px] max-w-[140px] px-2 py-2 rounded appearance-none"
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <svg
+                        className="w-4 h-4 text-[#4B215F]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <label htmlFor="rowsPerPage" className="text-sm">
+                    Rows per page:
+                  </label>
                 </div>
                 {/* <div className="relative w-[140px]">
                   <select
@@ -387,7 +443,9 @@ const CustomerDisplay = () => {
                     ].map(([key, label]) => (
                       <th
                         key={key}
-                        className={`p-3 px-6 cursor-pointer relative ${key === "first_name" ? "w-80 min-w-80 max-w-80" : ""} text-[14px] whitespace-nowrap`}
+                        className={`p-3 px-6 cursor-pointer relative ${
+                          key === "first_name" ? "w-80 min-w-80 max-w-80" : ""
+                        } text-[14px] whitespace-nowrap`}
                         onClick={() => handleSort(key)}
                       >
                         {label}
@@ -452,8 +510,8 @@ const CustomerDisplay = () => {
                         <td className="p-3 px-6 w-80 min-w-80 max-w-80 whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-3">
                           <Avatar name={row.first_name} />
                           <span className="w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
-                          {row.first_name} {row.middle_name} {row.last_name}
-                        </span>
+                            {row.first_name} {row.middle_name} {row.last_name}
+                          </span>
                         </td>
                         {/* <td className="p-3 px-6  whitespace-nowrap">
                           {row.middle_name}
@@ -462,7 +520,10 @@ const CustomerDisplay = () => {
                           {row.last_name}
                         </td> */}
                         <td className="p-3 px-6 w-50 min-w-50 max-w-50 whitespace-nowrap overflow-hidden text-ellipsis">
-                          <span className="inline-block select-text" title={row.email}>
+                          <span
+                            className="inline-block select-text"
+                            title={row.email}
+                          >
                             {row.email}
                           </span>
                         </td>
@@ -640,73 +701,80 @@ const CustomerDisplay = () => {
                 </tbody>
               </table>
 
-              {/* Pagination */}
-              <div className="flex justify-end mt-16 mb-4 gap-2 px-5">
-                <button
-                  className={`px-3 py-1 rounded cursor-pointer border ${
-                    currentPage == 1
-                      ? "text-gray-400 border-gray-400"
-                      : "text-black border-black"
-                  }  font-[500]`}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  <svg
-                    width="9"
-                    height="12"
-                    viewBox="0 0 9 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M8.32617 1.41L3.74617 6L8.32617 10.59L6.91617 12L0.916172 6L6.91617 0L8.32617 1.41Z"
-                      fill={` ${currentPage == 1 ? "#C4CDD5" : "#000000"}`}
-                    />
-                  </svg>
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => (
+              <div className="flex justify-between items-center">
+                <div className=" text-sm text-gray-600 font-[600] mt-2 px-6">
+                  Showing rows {(currentPage - 1) * rowsPerPage + 1}–
+                  {Math.min(currentPage * rowsPerPage, sortedData.length)} of{" "}
+                  {sortedData.length} total rows
+                </div>
+                {/* Pagination */}
+                <div className="flex justify-end mt-16 mb-4 gap-2 px-5">
                   <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3 py-1 rounded cursor-pointer ${
-                      currentPage === i + 1
-                        ? "border border-black text-black font-[500]"
-                        : "border border-gray-400 text-gray-400"
-                    }`}
+                    className={`px-3 py-1 rounded cursor-pointer border ${
+                      currentPage == 1
+                        ? "text-gray-400 border-gray-400"
+                        : "text-black border-black"
+                    }  font-[500]`}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
                   >
-                    {i + 1}
+                    <svg
+                      width="9"
+                      height="12"
+                      viewBox="0 0 9 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M8.32617 1.41L3.74617 6L8.32617 10.59L6.91617 12L0.916172 6L6.91617 0L8.32617 1.41Z"
+                        fill={` ${currentPage == 1 ? "#C4CDD5" : "#000000"}`}
+                      />
+                    </svg>
                   </button>
-                ))}
 
-                <button
-                  className={`px-3 py-1 rounded cursor-pointer border ${
-                    currentPage == totalPages
-                      ? "text-gray-400 border-gray-400"
-                      : "text-black border-black"
-                  }  font-[500]`}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  <svg
-                    width="8"
-                    height="12"
-                    viewBox="0 0 8 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M0.00585937 1.41L4.58586 6L0.00585937 10.59L1.41586 12L7.41586 6L1.41586 0L0.00585937 1.41Z"
-                      fill={` ${
-                        currentPage == totalPages ? "#C4CDD5" : "#000000"
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-1 rounded cursor-pointer ${
+                        currentPage === i + 1
+                          ? "border border-black text-black font-[500]"
+                          : "border border-gray-400 text-gray-400"
                       }`}
-                    />
-                  </svg>
-                </button>
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+
+                  <button
+                    className={`px-3 py-1 rounded cursor-pointer border ${
+                      currentPage == totalPages
+                        ? "text-gray-400 border-gray-400"
+                        : "text-black border-black"
+                    }  font-[500]`}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                  >
+                    <svg
+                      width="8"
+                      height="12"
+                      viewBox="0 0 8 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M0.00585937 1.41L4.58586 6L0.00585937 10.59L1.41586 12L7.41586 6L1.41586 0L0.00585937 1.41Z"
+                        fill={` ${
+                          currentPage == totalPages ? "#C4CDD5" : "#000000"
+                        }`}
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

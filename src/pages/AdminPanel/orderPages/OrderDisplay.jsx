@@ -12,7 +12,8 @@ const OrderDisplay = () => {
   const [statusFilter, setStatusFilter] = useState("All Orders");
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 8;
+  const [rowsPerPage, setRowsPerPage] = useState(10); // initially 10 rows per page
+   
 
   const navigate = useNavigate();
 
@@ -22,7 +23,7 @@ const OrderDisplay = () => {
         const api = await axios.get(
           "https://britishquilting.fastranking.tech/api/orders"
         );
-        // console.log("Fetched data:", api.data.orders);
+        console.log("Fetched data:", api.data.orders);
         setData(api.data.orders);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -37,10 +38,11 @@ const OrderDisplay = () => {
   }, [modalOpen]);
 
   const handleNewNavigate = () => {
-    navigate(`/add-new-order`);
+    navigate(`/add-order`);
   };
 
   const handleNavigate = (id) => {
+    console.log(id, "this is the id")
     navigate(`/order-detail-new/${id}`);
   };
 
@@ -57,9 +59,11 @@ const OrderDisplay = () => {
   const sortedData = useMemo(() => {
     let sortableData = [...data];
 
+    console.log("this is ", sortableData)
+
     if (searchTerm) {
       sortableData = sortableData.filter((item) =>
-        item.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+        item.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -89,6 +93,11 @@ const OrderDisplay = () => {
         if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
+    } else {
+      // Default sort: latest created_at first
+      sortableData.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
     }
 
     return sortableData;
@@ -99,7 +108,6 @@ const OrderDisplay = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
   const totalPages = Math.ceil(sortedData.length / rowsPerPage);
 
   const handleSort = (key) => {
@@ -125,36 +133,58 @@ const OrderDisplay = () => {
 
   /* ---------------------------Payment_status and Status Update API---------------------------- */
 
-  const handleStatusUpdate = async (orderId, type, newValue) => {
+  // const handleStatusUpdate = async (orderId, newStatus) => {
+  //   try {
+  //     const response = await axios.put(
+  //       `https://britishquilting.fastranking.tech/api/orders/${orderId}/status`,
+  //       { status: newStatus }
+  //     );
+
+  //     if (response.data.status) {
+  //       toast.success("Order status updated successfully!");
+  //       // Optionally update local state here
+  //     } else {
+  //       toast.error(response.data.message || "Failed to update order status.");
+  //     }
+  //   } catch (error) {
+  //     console.error("Update Error:", error);
+  //     toast.error(
+  //       error.response?.data?.message ||
+  //         "Something went wrong while updating the order status."
+  //     );
+  //   }
+  // };
+  // 2) When user changes status, call the API AND update local state
+  const handleStatusUpdate = async (orderId, newStatus) => {
     try {
-      const payload = {
-        status: type === "status" ? newValue : undefined,
-        payment_status: type === "payment_status" ? newValue : undefined,
-      };
-
-      // Clean payload to avoid sending undefined keys
-      Object.keys(payload).forEach(
-        (key) => payload[key] === undefined && delete payload[key]
-      );
-
       const response = await axios.put(
         `https://britishquilting.fastranking.tech/api/orders/${orderId}/status`,
-        payload
+        { status: newStatus }
       );
 
       if (response.data.status) {
-        toast.success("Order updated successfully");
-        // Update your local state if needed to reflect changes
+        toast.success("Order status updated successfully!");
+
+        // ─── Update `orders` in local state ─────────────────────────
+        setData((prev) =>
+          prev.map((o) =>
+            o.order_id === orderId
+              ? { ...o, status: newStatus }
+              : o
+          )
+        );
       } else {
-        toast.error(response.data.message || "Failed to update order.");
+        toast.error(response.data.message || "Failed to update order status.");
       }
     } catch (error) {
+      console.error("Update Error:", error);
       toast.error(
         error.response?.data?.message ||
-          "Something went wrong while updating the order."
+          "Something went wrong while updating the order status."
       );
     }
   };
+
 
   return (
     <>
@@ -311,6 +341,42 @@ const OrderDisplay = () => {
                     </svg>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative  w-[100px] max-w-[140px]">
+                    <select
+                      id="rowsPerPage"
+                      value={rowsPerPage}
+                      onChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value));
+                        setCurrentPage(1); // reset to page 1 on rows change
+                      }}
+                      className="border-1 border-[#D3D3D3] outline-none focus-within:ring-1 focus-within:ring-[#4B215F] w-[100px] max-w-[140px] p-2 rounded appearance-none"
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <svg
+                        className="w-4 h-4 text-[#4B215F]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <label htmlFor="rowsPerPage" className="text-sm font-[400]">
+                    Rows per page:
+                  </label>
+                </div>
               </div>
 
               <div className="flex items-center gap-4">
@@ -362,13 +428,12 @@ const OrderDisplay = () => {
                       ["order_id", "Order ID"],
                       ["customer_name", "Customer Name"],
                       ["order_date", "Order Date"],
-                      ["status", "Status"],
+                      // ["quantity", "Quantity"],
                       ["total_amount", "Total Amount"],
                       ["payment_method", "Payment Method"],
-                      ["payment_status", "Payment Status"],
-                      ["source", "Source"],
-                      ["source_reference", "Source Refrence"],
+                      ["status", "Order Status"],
                       ["created_at", "Created At"],
+                      // ["updated_at", "Updated At"],
                       ["action", "Action"],
                     ].map(([key, label]) => (
                       <th
@@ -423,7 +488,7 @@ const OrderDisplay = () => {
                   {paginatedData && paginatedData.length > 0 ? (
                     paginatedData.map((row) => (
                       <tr
-                        key={row.order_id}
+                        key={row.id}
                         className="border-b-1 border-[#D6D6D6] text-[14px] text-[#656565] font-[500] hover:bg-gray-50"
                       >
                         <td className="p-3 px-6  whitespace-nowrap">
@@ -435,48 +500,114 @@ const OrderDisplay = () => {
                         <td className="p-3 px-6  whitespace-nowrap">
                           {row.order_date}
                         </td>
-                        <td className="p-3 px-6 whitespace-nowrap">
+                        {/* <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
+                          {row.quantity}
+                        </td> */}
+                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
+                          {row.total_amount}
+                        </td>
+                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
+                          {row.payment_method}
+                        </td>
+
+                         <td className="px-4 py-2 whitespace-nowrap">
+              <div className="relative inline-block w-[200px]">
+                <select
+                  value={row.status}
+                  onChange={(e) =>
+                    handleStatusUpdate(row.order_id, e.target.value)
+                  }
+                  className={`
+                    appearance-none rounded-full px-4 pr-8 py-1 text-[12px] w-full
+                    ${
+                      row.status === "completed"
+                        ? "bg-green-100 text-green-600"
+                        : row.status === "pending"
+                        ? "bg-yellow-100 text-yellow-600"
+                        : row.status === "cancel"
+                        ? "bg-red-100 text-red-600"
+                        : ""
+                    }
+                  `}
+                >
+                  <option
+                    value="pending"
+                    className="bg-yellow-100 text-yellow-700"
+                  >
+                    Pending
+                  </option>
+                  <option
+                    value="completed"
+                    className="bg-green-100 text-green-700"
+                  >
+                    Completed
+                  </option>
+                  <option
+                    value="cancel"
+                    className="bg-red-100 text-red-700"
+                  >
+                    Cancel
+                  </option>
+                </select>
+
+                {/* Custom dropdown arrow */}
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <svg
+                    className="w-3 h-3 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </td>
+
+                        {/* <td className="p-3 px-6 whitespace-nowrap">
                           <div className="relative w-full">
                             <select
-                              value={row.status}
-                              onChange={(e) =>
-                                handleStatusUpdate(
-                                  row.order_id,
-                                  "status",
-                                  e.target.value
-                                )
+                              value={row.order_status}
+                              onChange={
+                                (e) =>
+                                  handleStatusUpdate(row.order_id, e.target.value) // Make sure to pass row.id, not customer_id
                               }
-                              className={` appearance-none ${
-                                row.status === "completed"
+                              className={`appearance-none ${
+                                row.order_status === "completed"
                                   ? "bg-green-100 text-green-600"
-                                  : row.status === "pending"
+                                  : row.order_status === "pending"
                                   ? "bg-yellow-100 text-yellow-600"
-                                  : row.status === "cancel"
+                                  : row.order_status === "cancel"
                                   ? "bg-red-100 text-red-600"
                                   : ""
                               } rounded-full px-3 pr-8 py-1 text-[12px]`}
                             >
                               <option
-                                className="bg-yellow-100 text-yellow-700"
                                 value="pending"
+                                className="bg-yellow-100 text-yellow-700"
                               >
                                 Pending
                               </option>
                               <option
-                                className="bg-green-100 text-green-700"
                                 value="completed"
+                                className="bg-green-100 text-green-700"
                               >
                                 Completed
                               </option>
                               <option
-                                className="bg-red-100 text-red-700"
                                 value="cancel"
+                                className="bg-red-100 text-red-700"
                               >
                                 Cancel
                               </option>
                             </select>
 
-                            {/* Custom dropdown arrow */}
+                           
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                               <svg
                                 className="w-3 h-3"
@@ -493,14 +624,9 @@ const OrderDisplay = () => {
                               </svg>
                             </div>
                           </div>
-                        </td>
-                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
-                          {row.total_amount}
-                        </td>
-                        <td className="p-3 px-6 w-60 max-w-80 truncate whitespace-nowrap overflow-hidden">
-                          {row.payment_method}
-                        </td>
-                        <td className="p-3 px-6 whitespace-nowrap">
+                        </td> */}
+
+                        {/* <td className="p-3 px-6 whitespace-nowrap">
                           <div className="relative w-full">
                             <select
                               value={row.payment_status}
@@ -541,7 +667,6 @@ const OrderDisplay = () => {
                               </option>
                             </select>
 
-                            {/* Custom dropdown arrow */}
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                               <svg
                                 className="w-3 h-3"
@@ -558,17 +683,14 @@ const OrderDisplay = () => {
                               </svg>
                             </div>
                           </div>
-                        </td>
+                        </td> */}
 
-                        <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
-                          {row.source}
-                        </td>
-                        <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
-                          {row.source_reference}
-                        </td>
                         <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
                           {row.created_at}
                         </td>
+                        {/* <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
+                          {row.updated_at}
+                        </td> */}
                         <td className="p-3 px-6  whitespace-nowrap">
                           <div
                             onClick={() => handleNavigate(row.order_id)}
@@ -608,73 +730,80 @@ const OrderDisplay = () => {
                 </tbody>
               </table>
 
-              {/* Pagination */}
-              <div className="flex justify-end mt-16 mb-4 gap-2 px-5">
-                <button
-                  className={`px-3 py-1 rounded cursor-pointer border ${
-                    currentPage == 1
-                      ? "text-gray-400 border-gray-400"
-                      : "text-black border-black"
-                  }  font-[500]`}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  <svg
-                    width="9"
-                    height="12"
-                    viewBox="0 0 9 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M8.32617 1.41L3.74617 6L8.32617 10.59L6.91617 12L0.916172 6L6.91617 0L8.32617 1.41Z"
-                      fill={` ${currentPage == 1 ? "#C4CDD5" : "#000000"}`}
-                    />
-                  </svg>
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => (
+              <div className="flex justify-between items-center">
+                <div className=" text-sm text-gray-600 font-[600] mt-2 px-6">
+                  Showing rows {(currentPage - 1) * rowsPerPage + 1}–
+                  {Math.min(currentPage * rowsPerPage, sortedData.length)} of{" "}
+                  {sortedData.length} total rows
+                </div>
+                {/* Pagination */}
+                <div className="flex justify-end mt-16 mb-4 gap-2 px-5">
                   <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3 py-1 rounded cursor-pointer ${
-                      currentPage === i + 1
-                        ? "border border-black text-black font-[500]"
-                        : "border border-gray-400 text-gray-400"
-                    }`}
+                    className={`px-3 py-1 rounded cursor-pointer border ${
+                      currentPage == 1
+                        ? "text-gray-400 border-gray-400"
+                        : "text-black border-black"
+                    }  font-[500]`}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
                   >
-                    {i + 1}
+                    <svg
+                      width="9"
+                      height="12"
+                      viewBox="0 0 9 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M8.32617 1.41L3.74617 6L8.32617 10.59L6.91617 12L0.916172 6L6.91617 0L8.32617 1.41Z"
+                        fill={` ${currentPage == 1 ? "#C4CDD5" : "#000000"}`}
+                      />
+                    </svg>
                   </button>
-                ))}
 
-                <button
-                  className={`px-3 py-1 rounded cursor-pointer border ${
-                    currentPage == totalPages
-                      ? "text-gray-400 border-gray-400"
-                      : "text-black border-black"
-                  }  font-[500]`}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  <svg
-                    width="8"
-                    height="12"
-                    viewBox="0 0 8 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M0.00585937 1.41L4.58586 6L0.00585937 10.59L1.41586 12L7.41586 6L1.41586 0L0.00585937 1.41Z"
-                      fill={` ${
-                        currentPage == totalPages ? "#C4CDD5" : "#000000"
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-1 rounded cursor-pointer ${
+                        currentPage === i + 1
+                          ? "border border-black text-black font-[500]"
+                          : "border border-gray-400 text-gray-400"
                       }`}
-                    />
-                  </svg>
-                </button>
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+
+                  <button
+                    className={`px-3 py-1 rounded cursor-pointer border ${
+                      currentPage == totalPages
+                        ? "text-gray-400 border-gray-400"
+                        : "text-black border-black"
+                    }  font-[500]`}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                  >
+                    <svg
+                      width="8"
+                      height="12"
+                      viewBox="0 0 8 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M0.00585937 1.41L4.58586 6L0.00585937 10.59L1.41586 12L7.41586 6L1.41586 0L0.00585937 1.41Z"
+                        fill={` ${
+                          currentPage == totalPages ? "#C4CDD5" : "#000000"
+                        }`}
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

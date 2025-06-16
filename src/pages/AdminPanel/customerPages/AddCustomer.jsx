@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const AddCustomer = () => {
-
   const navigate = useNavigate();
   const [notHasBusiness, setNotHasBusiness] = useState(false);
+
   const [formData, setFormData] = useState({
     customer_details: {
       title: "",
@@ -19,6 +19,7 @@ const AddCustomer = () => {
       alternate_phone_number: "",
       mobile_number: "",
       alternate_mobile_number: "",
+      comment: "",
       billing_addresses: [
         {
           address_line_1: "",
@@ -38,6 +39,19 @@ const AddCustomer = () => {
         },
       ],
     },
+
+    special_pricing: [
+      {
+        product_id: null,
+        apply_to_all: false,
+        variants: [
+          {
+            id: null,
+            special_price: null,
+          },
+        ],
+      },
+    ],
     business_details: {
       business_name: "",
       business_category: "",
@@ -82,9 +96,153 @@ const AddCustomer = () => {
         account_number: "",
         sort_code: "",
       },
-      credit_days: null,
+      credit_days: {
+        days: 0,
+      },
     },
   });
+
+  const [productOptions, setProductOptions] = useState([]);
+  const [productVariants, setProductVariants] = useState({});
+  const [editVariants, setEditVariants] = useState({});
+  const [showVariants, setShowVariants] = useState(
+    formData.special_pricing.map(() => false)
+  );
+
+  useEffect(() => {
+    setShowVariants((prev) => {
+      const newLength = formData.special_pricing.length;
+      if (prev.length !== newLength) {
+        return [...prev, ...Array(newLength - prev.length).fill(false)];
+      }
+      return prev;
+    });
+  }, [formData.special_pricing.length]);
+
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.tech/api/products")
+      .then((res) => {
+        if (res.data.success) {
+          setProductOptions(res.data.products);
+        }
+      })
+      .catch((err) => console.error("API error:", err));
+  }, []);
+
+
+  const handleEditToggle = (productIndex, variantIndex) => {
+    setEditVariants((prev) => ({
+      ...prev,
+      [productIndex]: {
+        ...prev[productIndex],
+        [variantIndex]: !prev?.[productIndex]?.[variantIndex],
+      },
+    }));
+  };
+
+  const handleToggleVariants = (index) => {
+    setShowVariants((prev) => prev.map((val, i) => (i === index ? !val : val)));
+  };
+
+const handleProductChange = async (index, field, value) => {
+  const updatedProducts = [...formData.special_pricing];
+  updatedProducts[index][field] = value;
+
+  if (field === "product_name") {
+    const selectedProduct = productOptions.find(
+      (p) => p.product_name === value
+    );
+
+    if (selectedProduct) {
+      updatedProducts[index].product_id = selectedProduct.id;
+
+      try {
+        const response = await axios.get(
+          `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
+        );
+        if (response.data.success) {
+          setProductVariants((prev) => ({
+            ...prev,
+            [index]: response.data.product.variants,
+          }));
+
+          updatedProducts[index].variants = response.data.product.variants.map((variant) => ({
+            id: variant.id,
+            special_price: "",
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching variants:", error);
+      }
+    }
+  }
+
+  setFormData((prev) => ({
+    ...prev,
+    special_pricing: updatedProducts,
+  }));
+};
+
+  const handleAddProduct = () => {
+    setFormData((prev) => ({
+      ...prev,
+      special_pricing: [
+        ...prev.special_pricing,
+        {
+          product_id: null,
+          apply_to_all: false,
+          variants: [
+            {
+              id: null,
+              special_price: null,
+            },
+          ],
+        },
+      ],
+    }));
+  };
+
+  const handleRemoveProduct = (index) => {
+    const updatedProducts = [...formData.special_pricing];
+    updatedProducts.splice(index, 1);
+
+    const updatedShowVariants = [...showVariants];
+    updatedShowVariants.splice(index, 1);
+
+    setFormData((prev) => ({
+      ...prev,
+      special_pricing: updatedProducts,
+    }));
+    setShowVariants(updatedShowVariants);
+  };
+
+const handleVariantChange = (productIndex, variantIndex, field, value) => {
+  setFormData(prev => {
+    const updatedSpecialPricing = [...prev.special_pricing];
+    const variants = [...(updatedSpecialPricing[productIndex].variants || [])];
+
+    const existingVariant = variants[variantIndex] || {};
+    variants[variantIndex] = {
+      ...existingVariant,
+      [field]: value,
+      id: existingVariant.id, // Ensure the `variant_id` is kept in state
+    };
+
+    updatedSpecialPricing[productIndex] = {
+      ...updatedSpecialPricing[productIndex],
+      variants,
+    };
+
+    return {
+      ...prev,
+      special_pricing: updatedSpecialPricing,
+    };
+  });
+};
+
+
+// ------------------------------------------------------------------------------------------------------------------------------------
 
   const handleInputChange = (section, field, value) => {
     setFormData((prev) => ({
@@ -139,12 +297,22 @@ const AddCustomer = () => {
       const updatedMethods = alreadySelected
         ? prev.payment_details.selected_methods.filter((m) => m !== method)
         : [...prev.payment_details.selected_methods, method];
+
+      const updatedPaymentDetails = {
+        ...prev.payment_details,
+        selected_methods: updatedMethods,
+      };
+
+      if (!alreadySelected && method === "credit_days") {
+        updatedPaymentDetails.credit_days = {
+          ...prev.payment_details.credit_days,
+          days: prev.payment_details.credit_days?.days || "30",
+        };
+      }
+
       return {
         ...prev,
-        payment_details: {
-          ...prev.payment_details,
-          selected_methods: updatedMethods,
-        },
+        payment_details: updatedPaymentDetails,
       };
     });
   };
@@ -162,56 +330,131 @@ const AddCustomer = () => {
     }));
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   try {
-  //     await axios.post("https://britishquilting.fastranking.tech/api/new-customer", formData);
-  //     alert("Form submitted successfully!");
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Submission failed.");
-  //   }
-  // };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  try {
     const dataToSend = { ...formData };
 
-    if (notHasBusiness) {
+    // Transform special_pricing
+    dataToSend.special_pricing = formData.special_pricing.map((product, index) => {
+      const base = {
+        product_id: product.product_id,
+        apply_to_all: !showVariants[index], // true if checkbox is checked
+      };
+
+      if (!showVariants[index]) {
+        // Apply to all: include one special_price field
+        return {
+          ...base,
+          special_price: product.special_price,
+        };
+      } else {
+        // Apply to selected variants
+        return {
+          ...base,
+          variants: product.variants
+  .map((v, variantIndex) => {
+    if (editVariants?.[index]?.[variantIndex]) {
+      return {
+        id: v.id,
+        special_price: v.special_price,
+      };
+    }
+    return null;
+  })
+  .filter(Boolean), // remove unchecked/null entries
+
+        };
+      }
+    });
+
+
+
+    if (
+      !dataToSend.payment_details.selected_methods ||
+      dataToSend.payment_details.selected_methods.length === 0
+    ) {
+      delete dataToSend.payment_details;
+    }
+
+    if (!notHasBusiness) {
+      const {
+        business_name,
+        b_phone_number,
+        b_mobile_number,
+        alternate_b_phone_number,
+        alternate_b_mobile_number,
+      } = dataToSend.business_details;
+
+      if (!business_name || business_name.trim() === "") {
+        alert("Business name is required.");
+        return;
+      }
+
+      const hasBusinessContact =
+        b_phone_number ||
+        b_mobile_number ||
+        alternate_b_phone_number ||
+        alternate_b_mobile_number;
+
+      if (!hasBusinessContact) {
+        alert(
+          "Please provide at least one contact number in the Business section."
+        );
+        return;
+      }
+    } else {
       delete dataToSend.business_details;
     }
 
-    const response = await axios.post(
-      "https://britishquilting.fastranking.tech/api/new-customer",
-      dataToSend
-    );
+    const {
+      phone_number,
+      mobile_number,
+      alternate_phone_number,
+      alternate_mobile_number,
+    } = dataToSend.customer_details;
 
-    // Check if response is success explicitly
-    if (
-      response.status === 200 ||
-      response.status === 201 ||
-      response.data?.success === true
-    ) {
-      alert("Form submitted successfully!");
-      // navigate("/customer-display");
-    } else {
-      // If response is not OK but no exception thrown
+    const hasCustomerContact =
+      phone_number ||
+      mobile_number ||
+      alternate_phone_number ||
+      alternate_mobile_number;
+
+    if (!hasCustomerContact) {
+      alert(
+        "Please provide at least one contact number in the Customer section."
+      );
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        "https://britishquilting.fastranking.tech/api/new-customer",
+        dataToSend
+      );
+
+      if (
+        response.status === 200 ||
+        response.status === 201 ||
+        response.data?.success === true
+      ) {
+        alert("Form submitted successfully!");
+        navigate("/customer-display");
+      } else {
+        const errorMessage =
+          response.data?.message || "Something went wrong during submission.";
+        alert(`Submission failed: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error("Error:", err);
       const errorMessage =
-        response.data?.message || "Something went wrong during submission.";
+        err.response?.data?.message ||
+        err.message ||
+        "An unexpected error occurred.";
       alert(`Submission failed: ${errorMessage}`);
     }
-  } catch (err) {
-    console.error("Error:", err);
+  };
 
-    const errorMessage =
-      err.response?.data?.message ||
-      err.message ||
-      "An unexpected error occurred.";
-    alert(`Submission failed: ${errorMessage}`);
-  }
-};
 
 
   return (
@@ -289,7 +532,7 @@ const handleSubmit = async (e) => {
                   Remove
                 </button>
               </div> */}
-           <div className="flex items-center gap-3 pt-5 px-8">
+            <div className="flex items-center gap-3 pt-5 px-8">
               <input
                 checked={notHasBusiness}
                 onChange={(e) => setNotHasBusiness(e.target.checked)}
@@ -297,7 +540,7 @@ const handleSubmit = async (e) => {
                 type="checkbox"
               />
               <span className="text-[16px] font-[500] text-[#4B215F]">
-                Not a Business 
+                Not a Business
               </span>
             </div>
 
@@ -313,7 +556,7 @@ const handleSubmit = async (e) => {
                       htmlFor="business_name"
                       className="font-[500] text-gray-700"
                     >
-                      Business Name<span className="text-red-500">*</span> 
+                      Business Name<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -336,7 +579,7 @@ const handleSubmit = async (e) => {
                       htmlFor="business_category"
                       className="font-[500] text-gray-700"
                     >
-                      Business Category<span className="text-red-500">*</span> 
+                      Business Category<span className="text-red-500"></span>
                     </label>
                     <div className="relative">
                       <select
@@ -352,16 +595,12 @@ const handleSubmit = async (e) => {
                           )
                         }
                       >
-                        <option
-                          value=""
-                          selected
-                          disabled
-                        >
+                        <option value="" selected disabled>
                           Select Business Category
                         </option>
-                        <option value="a">a</option>
-                        <option value="b">b</option>
-                        <option value="c">c</option>
+                        <option value="Ecommerce">Ecommerce</option>
+                        <option value="Blogging">Blogging</option>
+                        <option value="Marketing">Marketing</option>
                       </select>
                       {/* Custom dropdown arrow */}
                       <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
@@ -386,7 +625,7 @@ const handleSubmit = async (e) => {
                       htmlFor="business_type"
                       className="font-[500] text-gray-700"
                     >
-                      Business Type<span className="text-red-500">*</span> 
+                      Business Type<span className="text-red-500"></span>
                     </label>
                     <div className="relative">
                       <select
@@ -405,9 +644,9 @@ const handleSubmit = async (e) => {
                         <option value="" selected disabled>
                           Select Business Type
                         </option>
-                        <option value="x">x</option>
-                        <option value="y">y</option>
-                        <option value="z">z</option>
+                        <option value="Private">Private</option>
+                        <option value="Public">Public</option>
+                        <option value="Ltd">Ltd</option>
                       </select>
                       {/* Custom dropdown arrow */}
                       <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
@@ -432,7 +671,7 @@ const handleSubmit = async (e) => {
                       htmlFor="website"
                       className="font-[500] text-gray-700"
                     >
-                      Website<span className="text-red-500">*</span> 
+                      Website<span className="text-red-500"></span>
                     </label>
                     <input
                       type="text"
@@ -455,7 +694,7 @@ const handleSubmit = async (e) => {
                       htmlFor="business_phone"
                       className="font-[500] text-gray-700"
                     >
-                      Business Email<span className="text-red-500">*</span> 
+                      Business Email<span className="text-red-500"></span>
                     </label>
                     <input
                       type="email"
@@ -503,7 +742,8 @@ const handleSubmit = async (e) => {
                       htmlFor="phone_number"
                       className="font-[500] text-gray-700"
                     >
-                      Business Phone Number<span className="text-red-500">*</span> 
+                      Business Phone Number
+                      <span className="text-red-500"></span>
                     </label>
                     <input
                       type="number"
@@ -549,7 +789,8 @@ const handleSubmit = async (e) => {
                       htmlFor="mobile_number"
                       className="font-[500] text-gray-700"
                     >
-                      Business Mobile Number<span className="text-red-500">*</span> 
+                      Business Mobile Number
+                      <span className="text-red-500"></span>
                     </label>
                     <input
                       type="number"
@@ -605,7 +846,7 @@ const handleSubmit = async (e) => {
                         htmlFor="address_line_1"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 1<span className="text-red-500">*</span> 
+                        Address Line 1<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -634,7 +875,7 @@ const handleSubmit = async (e) => {
                         htmlFor="address_line_2"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 2<span className="text-red-500">*</span> 
+                        Address Line 2<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -664,7 +905,7 @@ const handleSubmit = async (e) => {
                         htmlFor="city"
                         className="font-[500] text-gray-700"
                       >
-                        City<span className="text-red-500">*</span> 
+                        City<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -691,7 +932,7 @@ const handleSubmit = async (e) => {
                         htmlFor="postal_code"
                         className="font-[500] text-gray-700"
                       >
-                        Postal Code<span className="text-red-500">*</span> 
+                        Postal Code<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -718,7 +959,7 @@ const handleSubmit = async (e) => {
                         htmlFor="country"
                         className="font-[500] text-gray-700"
                       >
-                        Country<span className="text-red-500">*</span> 
+                        Country<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -751,7 +992,7 @@ const handleSubmit = async (e) => {
                         htmlFor="address_line_1"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 1<span className="text-red-500">*</span> 
+                        Address Line 1<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -779,7 +1020,7 @@ const handleSubmit = async (e) => {
                         htmlFor="address_line_2"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 2<span className="text-red-500">*</span> 
+                        Address Line 2<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -808,7 +1049,7 @@ const handleSubmit = async (e) => {
                         htmlFor="city"
                         className="font-[500] text-gray-700"
                       >
-                        City<span className="text-red-500">*</span> 
+                        City<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -835,7 +1076,7 @@ const handleSubmit = async (e) => {
                         htmlFor="postal_code"
                         className="font-[500] text-gray-700"
                       >
-                        Postal Code<span className="text-red-500">*</span> 
+                        Postal Code<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -862,7 +1103,7 @@ const handleSubmit = async (e) => {
                         htmlFor="country"
                         className="font-[500] text-gray-700"
                       >
-                        Country<span className="text-red-500">*</span> 
+                        Country<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -897,7 +1138,7 @@ const handleSubmit = async (e) => {
               <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="title" className="font-[500] text-gray-700">
-                    Title<span className="text-red-500">*</span> 
+                    Title<span className="text-red-500"></span>
                   </label>
                   <div className="relative">
                     <select
@@ -944,7 +1185,7 @@ const handleSubmit = async (e) => {
                     htmlFor="first_name"
                     className="font-[500] text-gray-700"
                   >
-                    First Name<span className="text-red-500">*</span> 
+                    First Name<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -966,7 +1207,7 @@ const handleSubmit = async (e) => {
                     htmlFor="middle_name"
                     className="font-[500] text-gray-700"
                   >
-                    Middle Name<span className="text-red-500">*</span> 
+                    Middle Name<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -988,7 +1229,7 @@ const handleSubmit = async (e) => {
                     htmlFor="last_name"
                     className="font-[500] text-gray-700"
                   >
-                    Last Name<span className="text-red-500">*</span> 
+                    Last Name<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1010,7 +1251,7 @@ const handleSubmit = async (e) => {
               <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="price" className="font-[500] text-gray-700">
-                    Email<span className="text-red-500">*</span> 
+                    Email<span className="text-red-500"></span>
                   </label>
                   <input
                     type="email"
@@ -1040,7 +1281,7 @@ const handleSubmit = async (e) => {
                 </div>
                 <div className=" flex flex-col gap-2">
                   <label htmlFor="dob" className="font-[500] text-gray-700">
-                    Date Of Birth<span className="text-red-500">*</span> 
+                    Date Of Birth<span className="text-red-500"></span>
                   </label>
                   <input
                     type="date"
@@ -1059,7 +1300,7 @@ const handleSubmit = async (e) => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="gender" className="font-[500] text-gray-700">
-                    Gender<span className="text-red-500">*</span> 
+                    Gender<span className="text-red-500"></span>
                   </label>
                   <div className="relative">
                     <select
@@ -1108,7 +1349,7 @@ const handleSubmit = async (e) => {
                     htmlFor="phone_number"
                     className="font-[500] text-gray-700"
                   >
-                    Phone Number<span className="text-red-500">*</span> 
+                    Phone Number<span className="text-red-500"></span>
                   </label>
                   <input
                     type="number"
@@ -1154,7 +1395,7 @@ const handleSubmit = async (e) => {
                     htmlFor="mobile_number"
                     className="font-[500] text-gray-700"
                   >
-                    Mobile Number<span className="text-red-500">*</span> 
+                    Mobile Number<span className="text-red-500"></span>
                   </label>
                   <input
                     type="number"
@@ -1196,6 +1437,309 @@ const handleSubmit = async (e) => {
                   />
                 </div>
               </div>
+              <div className="flex flex-col gap-2 mt-5">
+                <label className="text-sm font-[500]" htmlFor="Comment">
+                  Comment
+                </label>
+                <textarea
+                  name="comment"
+                  id="comment"
+                  placeholder="Enter a comment..."
+                  rows="4"
+                  value={formData.customer_details.comment}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "customer_details",
+                      "comment",
+                      e.target.value
+                    )
+                  }
+                  className="border-1 border-gray-300 rounded-[8px] px-4 py-3"
+                ></textarea>
+              </div>
+
+              <div className="flex flex-col gap-4 mt-6 rounded-lg mb-4 border-1 border-[#C5C5C5] p-4">
+                {formData.special_pricing.map((product, index) => (
+                
+                    <div
+                      key={index}
+                      className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6  p-4 border-1 border-[#d3d3d3] relative"
+                    >
+                      <div className="flex flex-col gap-2">
+                        <label
+                          className="text-sm font-[500]"
+                          htmlFor={`product_name_${index}`}
+                        >
+                          Special Price Offer
+                        </label>
+                        <div className="relative">
+                          <select
+                            className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
+                            name="product_name"
+                            id={`product_name_${index}`}
+                            value={product.product_name}
+                            onChange={(e) =>
+                              handleProductChange(
+                                index,
+                                "product_name",
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value="" selected disabled>
+                              Select Product Name
+                            </option>
+                            {productOptions.map((p) => (
+                              <option key={p.id} value={p.product_name}>
+                                {p.product_name}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 top-0 flex items-center px-3 text-gray-500">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Optional remove button */}
+                      {index !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProduct(index)}
+                          className="absolute top-1 right-3 text-red-500 hover:text-red-700 text-2xl font-bold cursor-pointer"
+                        >
+                          x
+                        </button>
+                      )}
+
+                      {productVariants[index] && (
+                        <div className="col-span-4 mt-4 py-4 px-6 border border-gray-200 rounded-lg bg-gray-50">
+                          <div className="grid grid-cols-4 gap-5">
+                            <div className="flex items-center gap-2 mb-3">
+                              <input
+                                type="checkbox"
+                                name="apply_to_all"
+                                id={`all_checkbox_${index}`}
+                                checked={!showVariants[index]} // Checked = "All"
+                                onChange={() => handleToggleVariants(index)}
+                              />
+                              <label
+                                htmlFor={`all_checkbox_${index}`}
+                                className="text-sm font-medium"
+                              >
+                                Applies To All Varients
+                              </label>
+                            </div>
+                            {(() => {
+                              const selected = productOptions.find(
+                                (p) => p.product_name === product.product_name
+                              );
+
+                              return (
+                                !showVariants[index] &&
+                                selected && (
+                                  <>
+                                    <div className="flex flex-col gap-2">
+                                      <label
+                                        className="text-sm font-[500]"
+                                        htmlFor={`price_${index}`}
+                                      >
+                                        Price
+                                      </label>
+                                      <input
+                                        type="text"
+                                        name="price"
+                                        id={`price_${index}`}
+                                        value={selected.base_price}
+                                        onChange={(e) =>
+                                          handleProductChange(
+                                            index,
+                                            "base_price",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                      />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                      <label
+                                        className="text-sm font-[500]"
+                                        htmlFor={`discount_${index}`}
+                                      >
+                                        Discount
+                                      </label>
+                                      <input
+                                        type="text"
+                                        name="discount"
+                                        id={`discount_${index}`}
+                                        value={selected.base_discount}
+                                        onChange={(e) =>
+                                          handleProductChange(
+                                            index,
+                                            "discount",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                      />
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                      <label
+                                        className="text-sm font-[500]"
+                                        htmlFor={`special_price_${index}`}
+                                      >
+                                        Special Price
+                                      </label>
+                                      <input
+                                        type="number"
+                                        name="special_price"
+                                        id={`special_price_${index}`}
+                                        placeholder="Enter special price"
+                                        value={product.special_price || ""}
+                                        onChange={(e) =>
+                                          handleProductChange(
+                                            index,
+                                            "special_price",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                      />
+                                    </div>
+                                  </>
+                                )
+                              );
+                            })()}
+                          </div>
+                          {/* Show variants only if "All" is unchecked */}
+                          {showVariants[index] && (
+                            <>
+                              <h3 className="text-md font-semibold mb-2">
+                                Available Variants:
+                              </h3>
+
+                              <div className="flex flex-col items-end gap-2 w-full ">
+                                <p className="mb-2 text-sm w-3/4">
+                                  <strong>Product Name:</strong>{" "}
+                                  {formData.special_pricing[index]
+                                    ?.product_name || "N/A"}
+                                </p>
+                                <div className="flex flex-col w-3/4 gap-4">
+                                  {productVariants[index]?.map(
+                                    (variant, variantIndex) => (
+                                      <div className="flex items-start gap-3 w-full">
+                                        <label className="flex items-center gap-2 text-sm font-medium">
+                                          <input
+                                            type="checkbox"
+                                            checked={
+                                              editVariants?.[index]?.[
+                                                variantIndex
+                                              ] || false
+                                            }
+                                            onChange={() =>
+                                              handleEditToggle(
+                                                index,
+                                                variantIndex
+                                              )
+                                            }
+                                          />
+                                          Edit
+                                        </label>
+                                        <div
+                                          key={variant.id}
+                                          className="flex flex-col w-full justify-center border border-gray-300 shadow-sm rounded-lg p-3 bg-white"
+                                        >
+                                          {/* Header row with details and edit toggle */}
+                                          <div className="flex justify-between items-center mb-2">
+                                            <div className="flex gap-10">
+                                              <p>
+                                                <strong>Price:</strong> £
+                                                {variant.price}
+                                              </p>
+                                              <p>
+                                                <strong>Discount:</strong> £
+                                                {variant.discount}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          {/* Editable fields OR static view */}
+                                          {editVariants?.[index]?.[
+                                            variantIndex
+                                          ] ? (
+                                            <div className="grid grid-cols-3 border-t-1 border-gray-300 mt-2 pt-1 gap-5">
+                                              <div className="flex flex-col gap-1 font-[600]">
+                                                <label>Price</label>
+                                                <input
+                                                  type="text"
+                                                  value={variant.price}
+                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                                />
+                                              </div>
+                                              <div className="flex flex-col gap-1 font-[600]">
+                                                <label>Discount</label>
+                                                <input
+                                                  type="text"
+                                                  value={variant.discount}
+                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                                />
+                                              </div>
+                                              <div className="flex flex-col gap-1 font-[600]">
+                                                <label>Special Price</label>
+                                                <input
+                                                  type="number"
+                                                  name="special_price"
+                                                  value={
+                                                    variant.special_price 
+                                                  }
+                                                  onChange={(e) =>
+                                                    handleVariantChange(
+                                                      index,
+                                                      variantIndex,
+                                                      "special_price",
+                                                      e.target.value
+                                                    )
+                                                  }
+                                                  placeholder="Enter special price"
+                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                                />
+                                              </div>
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                className="border-1 border-violet-900 text-violet-900 rounded-[8px] font-[500] py-2 px-4 w-40 cursor-pointer hover:bg-violet-900 hover:text-white"
+              >
+                + Add Product
+              </button>
             </div>
             {/* Customer Info Ends */}
 
@@ -1208,7 +1752,7 @@ const handleSubmit = async (e) => {
                     htmlFor="address_line_1"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 1<span className="text-red-500">*</span> 
+                    Address Line 1<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1236,7 +1780,7 @@ const handleSubmit = async (e) => {
                     htmlFor="address_line_2"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 2<span className="text-red-500">*</span> 
+                    Address Line 2<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1262,7 +1806,7 @@ const handleSubmit = async (e) => {
               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="city" className="font-[500] text-gray-700">
-                    City<span className="text-red-500">*</span> 
+                    City<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1287,7 +1831,7 @@ const handleSubmit = async (e) => {
                     htmlFor="postal_code"
                     className="font-[500] text-gray-700"
                   >
-                    Postal Code <span className="text-red-500">*</span> 
+                    Postal Code <span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1310,7 +1854,7 @@ const handleSubmit = async (e) => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="country" className="font-[500] text-gray-700">
-                    Country<span className="text-red-500">*</span> 
+                    Country<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1341,7 +1885,7 @@ const handleSubmit = async (e) => {
                     htmlFor="address_line_1"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 1<span className="text-red-500">*</span> 
+                    Address Line 1<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1369,7 +1913,7 @@ const handleSubmit = async (e) => {
                     htmlFor="address_line_2"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 2<span className="text-red-500">*</span> 
+                    Address Line 2<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1395,7 +1939,7 @@ const handleSubmit = async (e) => {
               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="city" className="font-[500] text-gray-700">
-                    City<span className="text-red-500">*</span> 
+                    City<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1420,7 +1964,7 @@ const handleSubmit = async (e) => {
                     htmlFor="postal_code"
                     className="font-[500] text-gray-700"
                   >
-                    Postal Code<span className="text-red-500">*</span> 
+                    Postal Code<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1444,7 +1988,7 @@ const handleSubmit = async (e) => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="country" className="font-[500] text-gray-700">
-                    Country<span className="text-red-500">*</span> 
+                    Country<span className="text-red-500"></span>
                   </label>
                   <input
                     type="text"
@@ -1468,9 +2012,6 @@ const handleSubmit = async (e) => {
               </div>
             </div>
             {/* Address Details ends*/}
-
- 
-
 
             {/* Payment Section */}
             <div className="border border-[#dadada] rounded-lg p-6 m-8 bg-[#f7fff3]">
@@ -1512,6 +2053,7 @@ const handleSubmit = async (e) => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={() => handlePaymentMethodChange("credit_card")}
                     checked={formData.payment_details.selected_methods.includes(
                       "credit_card"
@@ -1522,6 +2064,7 @@ const handleSubmit = async (e) => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={() => handlePaymentMethodChange("direct_debit")}
                     checked={formData.payment_details.selected_methods.includes(
                       "direct_debit"
@@ -1532,6 +2075,7 @@ const handleSubmit = async (e) => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={() => handlePaymentMethodChange("cash")}
                     checked={formData.payment_details.selected_methods.includes(
                       "cash"
@@ -1542,6 +2086,7 @@ const handleSubmit = async (e) => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={() => handlePaymentMethodChange("cheque")}
                     checked={formData.payment_details.selected_methods.includes(
                       "cheque"
@@ -1552,9 +2097,10 @@ const handleSubmit = async (e) => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    onChange={() => handlePaymentMethodChange("credit")}
+                    className="cursor-pointer"
+                    onChange={() => handlePaymentMethodChange("credit_days")}
                     checked={formData.payment_details.selected_methods.includes(
-                      "credit"
+                      "credit_days"
                     )}
                   />{" "}
                   Credit
@@ -1570,7 +2116,7 @@ const handleSubmit = async (e) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block font-medium mb-1">
-                        Card Number<span className="text-red-500">*</span> 
+                        Card Number<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -1589,7 +2135,7 @@ const handleSubmit = async (e) => {
                     </div>
                     <div>
                       <label className="block font-medium mb-1">
-                        Card Type<span className="text-red-500">*</span> 
+                        Card Type<span className="text-red-500"></span>
                       </label>
                       <select
                         name="card_type"
@@ -1604,7 +2150,7 @@ const handleSubmit = async (e) => {
                         className="py-2 px-4 border-1 bg-white appearance-none border-[#C5C5C5] rounded-[8px] w-full"
                       >
                         <option value="" disabled selected>
-                         Select Card Type
+                          Select Card Type
                         </option>
                         <option value="Visa">Visa</option>
                         <option value="Master">Master</option>
@@ -1614,7 +2160,7 @@ const handleSubmit = async (e) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block font-medium mb-1">
-                        Expire Date<span className="text-red-500">*</span> 
+                        Expire Date<span className="text-red-500"></span>
                       </label>
                       <input
                         type="date"
@@ -1662,7 +2208,7 @@ const handleSubmit = async (e) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block font-medium mb-1">
-                        Name in the Bank<span className="text-red-500">*</span> 
+                        Name in the Bank<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -1683,7 +2229,7 @@ const handleSubmit = async (e) => {
                     </div>
                     <div>
                       <label className="block font-medium mb-1">
-                        Bank Name<span className="text-red-500">*</span> 
+                        Bank Name<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -1704,7 +2250,7 @@ const handleSubmit = async (e) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block font-medium mb-1">
-                        Account Number<span className="text-red-500">*</span> 
+                        Account Number<span className="text-red-500"></span>
                       </label>
                       <input
                         type="number"
@@ -1725,7 +2271,7 @@ const handleSubmit = async (e) => {
                     </div>
                     <div>
                       <label className="block font-medium mb-1">
-                        Sort Code<span className="text-red-500">*</span> 
+                        Sort Code<span className="text-red-500"></span>
                       </label>
                       <input
                         type="text"
@@ -1746,29 +2292,30 @@ const handleSubmit = async (e) => {
                 </div>
               )}
 
-              {formData.payment_details.selected_methods.includes("credit") && (
+              {formData.payment_details.selected_methods.includes(
+                "credit_days"
+              ) && (
                 <div className="flex flex-col gap-2">
                   <label htmlFor="credit" className="font-[500]">
-                    Credit<span className="text-red-500">*</span> 
+                    Credit<span className="text-red-500"></span>
                   </label>
                   <div className="relative w-[40%]">
                     <select
                       className="py-2 px-4 border-1 bg-white appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                       name="credit"
                       id="credit"
-                      value={formData.payment_details.credit_days}
+                      value={formData.payment_details.credit_days.days || ""}
                       onChange={(e) =>
                         handlePaymentFieldChange(
                           "credit_days",
-                          null,
+                          "days",
                           e.target.value
                         )
                       }
                     >
-                      <option value="select credit" selected disabled>
-                        Select Credit
+                      <option value={formData.payment_details.credit_days.days}>
+                        {formData.payment_details.credit_days.days}
                       </option>
-                      <option value="30" selected>30</option>
                     </select>
                     {/* Custom dropdown arrow */}
                     <div className="pointer-events-none absolute inset-y-0 top-0 right-0 flex items-center px-3 text-gray-500">
@@ -1802,7 +2349,7 @@ const handleSubmit = async (e) => {
               type="submit"
               className="rounded-[40px] bg-[#4B215F] font-[500] text-[18px] text-white py-2 px-12 cursor-pointer hover:bg-[#704385]"
             >
-              Save
+              Submit
             </button>
           </div>
         </form>

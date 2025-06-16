@@ -1,499 +1,700 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const AddNewOrder = () => {
-  //Form Input State
-  const [formData, setFormData] = useState({
-    customer: {
-      name: "",
-      email: "",
-      phone: "",
-      shipping_address: "",
-      billing_address: "",
-    },
-    order: {
-      order_date: "",
-      status: "pending",
-      total_amount: 0,
-      payment_method: "credit_card",
-      payment_status: "pending",
-      source: "offline", // default
-      source_reference: null,
-    },
+  const navigate = useNavigate();
 
-    items: [
+  const [formData, setFormData] = useState({
+    business_type: "", // <-- added this
+    business_id: "",
+    customer_id: "",
+    payment_method: "",
+    order_item: [
       {
-        variant_id: 0,
-        quantity: 1,
-        price_per_unit: 0,
-        size_id: 1,
-        discount_applied: 0,
-        total_price: 0,
+        sku: "",
+        product_id: "",
+        variant_id: "",
+        quantity: "",
+        size_id: "",
+        price: "",
+      },
+    ],
+    billing_addresses: [
+      {
+        address_line_1: "",
+        address_line_2: "",
+        city: "",
+        postal_code: "",
+        country: "",
+      },
+    ],
+    shipping_addresses: [
+      {
+        address_line_1: "",
+        address_line_2: "",
+        city: "",
+        postal_code: "",
+        country: "",
       },
     ],
   });
 
-  //Customer Section
-  const handleCustomerChange = (e) => {
-    const { name, value } = e.target;
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [business, setBusiness] = useState([]);
+
+  const handleTypeChange = (e) => {
+    const selectedType = e.target.value;
+
     setFormData((prev) => ({
       ...prev,
-      customer: {
-        ...prev.customer,
-        [name]: value,
-      },
+      business_type: selectedType,
+      business_id: "",
+      customer_id: "",
     }));
+
+    if (selectedType === "Business") {
+      axios
+        .get("https://britishquilting.fastranking.tech/api/business")
+        .then((res) => {
+          if (res.data.status) {
+            setBusiness(res.data.data);
+          }
+        })
+        .catch((err) => console.error(err));
+    } else if (selectedType === "Customer") {
+      axios
+        .get("https://britishquilting.fastranking.tech/api/customers")
+        .then((res) => {
+          if (res.data.status) {
+            setCustomers(res.data.data);
+          }
+        })
+        .catch((err) => console.error(err));
+    }
   };
 
-  //Order Section
-  const handleOrderChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
-      order: {
-        ...prev.order,
-        [name]:
-          name === "total_amount"
-            ? parseFloat(value)
-            : value === ""
-            ? null
-            : value,
-      },
+      [name]: value,
+      // ensure the opposite field is cleared
+      ...(name === "business_id" ? { customer_id: null } : {}),
+      ...(name === "customer_id" ? { business_id: null } : {}),
     }));
+
+    if (name === "customer_id") {
+      const selected = customers.find((cust) => cust.id.toString() === value);
+      setSelectedCustomer(selected || null);
+    }
   };
 
-  //Item Section
-  // const handleItemChange = (e, index) => {
-  //   const { name, value } = e.target;
-  //   const newItems = [...formData.items];
-  //   newItems[index][name] =
-  //     name === "variant_id" || name === "quantity"
-  //       ? parseInt(value)
-  //       : parseFloat(value);
-  //   newItems[index].total_price =
-  //     newItems[index].quantity * newItems[index].price_per_unit;
-
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     items: newItems,
-  //   }));
-  // };
-
-  //Item Section
-  const handleItemChange = (e, index) => {
+  const handleAddressChange = (type, index, e) => {
     const { name, value } = e.target;
-    const newItems = [...formData.items];
-
-    const numericFields = [
-      "variant_id",
-      "quantity",
-      "price_per_unit",
-      "size_id",
-      "discount_applied",
-    ];
-
-    newItems[index][name] = numericFields.includes(name)
-      ? parseFloat(value)
-      : value;
-
-    // Recalculate total_price
-    newItems[index].total_price =
-      newItems[index].quantity * newItems[index].price_per_unit;
-
-    setFormData((prev) => ({
-      ...prev,
-      items: newItems,
-    }));
+    const updated = [...formData[type]];
+    updated[index][name] = value;
+    setFormData({ ...formData, [type]: updated });
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  //Add Item Section Dynamically on "+ Add Item" button
-  const addItem = () => {
+    axios
+      .post(
+        "https://britishquilting.fastranking.tech/api/save-new-order",
+        formData
+      )
+      .then((res) => {
+        console.log("API Response:", res);
+
+        if (res.status === 201 || res.status === 200) {
+          alert("Order submitted successfully!");
+          setFormData({
+            business_type: "",
+            business_id: "",
+            customer_id: "",
+            product_code: "",
+            quantity: "",
+            price: "",
+            description: "",
+            total_amount: "",
+            payment_method: "",
+            billing_addresses: [
+              {
+                address_line_1: "",
+                address_line_2: "",
+                city: "",
+                postal_code: "",
+                country: "",
+              },
+            ],
+            shipping_addresses: [
+              {
+                address_line_1: "",
+                address_line_2: "",
+                city: "",
+                postal_code: "",
+                country: "",
+              },
+            ],
+          });
+          setSelectedCustomer(null);
+          navigate("/order-display");
+        } else {
+          alert("Something went wrong. Please check your input.");
+        }
+      })
+      .catch((error) => {
+        console.error("Submission Error:", error);
+        alert("An error occurred while submitting the order.");
+      });
+  };
+
+  const addAddress = (type) => {
     setFormData((prev) => ({
       ...prev,
-      items: [
-        ...prev.items,
+      [type]: [
+        ...prev[type],
         {
-          variant_id: 0,
-          quantity: 1,
-          price_per_unit: 0,
-          size_id: 1,
-          discount_applied: 0,
-          total_price: 0,
+          address_line_1: "",
+          address_line_2: "",
+          city: "",
+          postal_code: "",
+          country: "",
         },
       ],
     }));
   };
 
-  //Delete dynamically Added Item Section
-  const removeItem = (index) => {
-    const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData((prev) => ({
-      ...prev,
-      items: newItems,
-    }));
-  };
-
-  //Form Submit To API
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        customer: formData.customer,
-        order: formData.order,
-        items: formData.items,
-      };
-
-      console.log(
-        "This is payload",
-        payload.customer,
-        payload.items,
-        payload.order
-      );
-      const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/new-order",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      alert(
-        `Order submitted successfully! Order ID: ${response.data.order_id}`
-      );
-    } catch (error) {
-      console.error(error);
-      alert("Failed to submit order.");
-    }
+  const removeAddress = (type, index) => {
+    const updated = [...formData[type]];
+    updated.splice(index, 1);
+    setFormData({ ...formData, [type]: updated });
   };
 
   return (
-    <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
-      <div className="w-full min-h-[90vh] px-5 pr-5 lg:pr-10 py-6 bg-[#F7F7F7]">
-        <h1 className="font-[600] text-[28px]">Add Order </h1>
-        <form onSubmit={handleSubmit} className="">
-          <div className="bg-white flex flex-col rounded-[8px] w-full h-[80%] mt-5 py-5">
-            <div className="pb-6 px-8 border-b-1 border-gray-300">
-              <h2 className="text-[22px] font-[600] mb-4">Customer Info</h2>
-              {/* Row 1 */}
-              <div className="flex flex-row w-full gap-4 mb-4">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Name" className="font-[500] text-[16px]">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Name"
-                    value={formData.customer.name}
-                    onChange={handleCustomerChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={formData.customer.email}
-                    onChange={handleCustomerChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Row 2 */}
-              <div className="flex flex-row w-full gap-4 mb-4">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Phone" className="font-[500]">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    placeholder="Phone"
-                    value={formData.customer.phone}
-                    onChange={handleCustomerChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Shipping Address" className="font-[500]">
-                    Shipping Address
-                  </label>
-                  <input
-                    type="text"
-                    name="shipping_address"
-                    placeholder="Shipping Address"
-                    value={formData.customer.shipping_address}
-                    onChange={handleCustomerChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
+    <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
+      <div className="w-full min-h-[91vh] h-auto px-5  pr-5 lg:pr-10 py-6 bg-[#F7F7F7]">
+        <h1 className="font-[600] text-[25px] lg:text-[28px] flex items-center gap-4">
+          Add Order
+        </h1>
+        <div className="bg-white rounded-[8px] border-1 border-[#D6D6D6] w-full pb-6 p-8 h-auto mt-5">
+          <form onSubmit={handleSubmit} action="">
+            <div className="flex gap-5 w-full items-center">
+              <div className="flex flex-col gap-1 w-[220px]">
+                <label htmlFor="business_type" className="text-sm font-[600]">
+                  Select Type
+                </label>
+                <div className="relative">
+                  <select
+                    name="business_type"
+                    id="business_type"
+                    value={formData.business_type || ""}
+                    onChange={(e) => handleTypeChange(e)}
+                    className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                  >
+                    <option value="" disabled>
+                      Select Business Type
+                    </option>
+                    <option value="Business">Business</option>
+                    <option value="Customer">Customer</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
                 </div>
               </div>
 
-              {/* Row 3 */}
-              <div className="flex flex-row w-full mb-4">
-                <div className="flex flex-col gap-1 w-[calc(50%-8px)]">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Billing Address
+              <div className="flex flex-col gap-1 w-[300px]">
+                <label htmlFor="name_selector" className="text-sm font-[600]">
+                  Business or Customer Name
+                </label>
+                <div className="relative">
+                  <select
+                    id="name_selector"
+                    name={
+                      formData.business_type === "Business"
+                        ? "business_id"
+                        : "customer_id"
+                    }
+                    value={
+                      formData.business_type === "Business"
+                        ? formData.business_id
+                        : formData.customer_id
+                    }
+                    onChange={handleChange}
+                    className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                  >
+                    <option value="" disabled>
+                      Select Name
+                    </option>
+                    {(formData.business_type === "Business"
+                      ? business
+                      : customers
+                    ).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {formData.business_type === "Business"
+                          ? item.name
+                          : `${item.first_name} ${item.last_name}`}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-1 border-gray-300 rounded-[6px] p-5 bg-[#fffffa] w-full mt-6 min-h-50">
+              {selectedCustomer ? (
+                <ul className="space-y-2 text-sm">
+                  <li>
+                    <strong>First Name:</strong>{" "}
+                    {selectedCustomer.first_name || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Middle Name:</strong>{" "}
+                    {selectedCustomer.middle_name || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Last Name:</strong>{" "}
+                    {selectedCustomer.last_name || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Email:</strong> {selectedCustomer.email || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Phone:</strong> {selectedCustomer.phone || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Mobile:</strong> {selectedCustomer.mobile || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Date of Birth:</strong>{" "}
+                    {selectedCustomer.dob || "N/A"}
+                  </li>
+                  <li>
+                    <strong>Status:</strong>{" "}
+                    {selectedCustomer.is_active ? "Active" : "Inactive"}
+                  </li>
+                </ul>
+              ) : (
+                <p className="text-gray-500">
+                  Please select a customer to view details.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t-1 border-gray-300 py-10 ">
+              <h1 className="text-[20px] font-[500]">Product Details</h1>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
+                    Product Name
                   </label>
                   <input
                     type="text"
-                    name="billing_address"
-                    placeholder="Billing Address"
-                    value={formData.customer.billing_address}
-                    onChange={handleCustomerChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
+                    name="product_code"
+                    placeholder="Enter Product Name"
+                    value={formData.product_code}
+                    onChange={handleChange}
+                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
+                  />
+                </div>
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
+                    Quantity
+                  </label>
+                  <input
+                    type="text"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleChange}
+                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
+                    placeholder="Enter Qualtity"
+                  />
+                </div>
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
+                    Price
+                  </label>
+                  <input
+                    type="text"
+                    name="price"
+                    value={formData.price}
+                    onChange={handleChange}
+                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
+                    placeholder="Enter Price"
+                  />
+                </div>
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
+                    Amount
+                  </label>
+                  <input
+                    type="text"
+                    name="total_amount"
+                    value={formData.total_amount}
+                    onChange={handleChange}
+                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
+                    placeholder="Enter Total Amount"
+                  />
+                </div>
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
+                    Description
+                  </label>
+                  <textarea
+                    rows="4"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
+                    placeholder="Enter Qualtity"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="py-6 px-8 border-b-1 border-gray-300">
-              <h2 className="text-[22px] font-[600] mb-4">Order Info</h2>
-              <div className="flex flex-row w-full gap-4 mb-4">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Order Date
-                  </label>
-                  <input
-                    type="date"
-                    name="order_date"
-                    value={formData.order.order_date}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Total Amount
-                  </label>
-                  <input
-                    type="number"
-                    name="total_amount"
-                    placeholder="Total Amount"
-                    value={formData.order.total_amount}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex flex-row w-full gap-4 mb-4">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.order.status}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="shipped">Shipped</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
+            <div className="border-t-1 border-gray-300 py-10">
+              <h1 className="text-[20px] font-[500]">Payment Details</h1>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="mt-5 flex flex-col gap-1">
+                  <label htmlFor="Product Code" className="text-sm font-[600]">
                     Payment Method
                   </label>
-                  <select
-                    name="payment_method"
-                    value={formData.order.payment_method}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                  >
-                    <option value="credit_card">Credit Card</option>
-                    <option value="paypal">PayPal</option>
-                    <option value="cod">Cash on Delivery</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-row w-full gap-4 mb-4">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Source
-                  </label>
-                  <select
-                    name="source"
-                    value={formData.order.source}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                  >
-                    <option value="web">Web</option>
-                    <option value="offline">Offline</option>
-                    <option value="3rd party">3rd Party</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label htmlFor="Email" className="font-[500] text-[16px]">
-                    Source Refrence
-                  </label>
-                  <input
-                    type="text"
-                    name="source_reference"
-                    placeholder="Source Reference (optional)"
-                    value={formData.order.source_reference || ""}
-                    onChange={handleOrderChange}
-                    className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 px-8">
-              <h2 className="text-[22px] font-[600] mb-4">Item Info</h2>
-              {formData.items.map((item, index) => (
-                <div key={index} className=" relative">
-                  {index > 0 && (
-                    <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="absolute -top-6 -right-0 text-red-600 cursor-pointer"
-                  >
-                    ✖
-                  </button>
-                  )} 
-                  <div key={index} className="py-2 mb-5">
-                    <div className="flex flex-row w-full gap-4 mb-4">
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Varient ID
-                        </label>
-                        <input
-                          type="number"
-                          name="variant_id"
-                          placeholder="Variant ID"
-                          value={item.variant_id}
-                          onChange={(e) => handleItemChange(e, index)}
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                          required
+                  <div className="relative">
+                    <select
+                      name="payment_method"
+                      id="payment_method"
+                      value={formData.payment_method}
+                      onChange={handleChange}
+                      className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                    >
+                      <option value="" selected disabled>
+                        Select Business Type
+                      </option>
+                      <option value="Credit card">Credit card</option>
+                      <option value="Direct debit">Direct debit</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Credit">Credit</option>
+                    </select>
+                    {/* Custom dropdown arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 9l-7 7-7-7"
                         />
-                      </div>
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Quantity
-                        </label>
-                        <input
-                          type="number"
-                          name="quantity"
-                          placeholder="Quantity"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(e, index)}
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-row w-full gap-4 mb-4">
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Price Per Unit
-                        </label>
-                        <input
-                          type="number"
-                          name="price_per_unit"
-                          placeholder="Price per unit"
-                          value={item.price_per_unit}
-                          onChange={(e) => handleItemChange(e, index)}
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                          required
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Size ID
-                        </label>
-                        <input
-                          type="number"
-                          name="size_id"
-                          placeholder="Size Id"
-                          value={item.size_id}
-                          onChange={(e) => handleItemChange(e, index)}
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-row w-full gap-4 mb-4">
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Discount Applied
-                        </label>
-                        <input
-                          type="number"
-                          name="discount_applied"
-                          placeholder="Discount Applied"
-                          value={item.discount_applied}
-                          onChange={(e) => handleItemChange(e, index)}
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1 w-1/2">
-                        <label
-                          htmlFor="Email"
-                          className="font-[500] text-[16px]"
-                        >
-                          Total Price
-                        </label>
-                        <input
-                          type="number"
-                          name="total_price"
-                          placeholder="Total Price"
-                          value={item.total_price}
-                          readOnly
-                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
-                        />
-                      </div>
+                      </svg>
                     </div>
                   </div>
                 </div>
-              ))}
-              <button
-                type="button"
-                onClick={addItem}
-                className="px-5 py-2 mb-5 font-[600] border-1 border-green-600 text-green-600 bg-green-100 rounded hover:bg-green-200 cursor-pointer"
-              >
-                + Add Item
-              </button>
+              </div>
             </div>
 
-            <button
-              type="submit"
-              className="mx-8 bg-blue-600 text-white p-2 rounded hover:bg-blue-700 cursor-pointer"
+            {/* Address Details start*/}
+            <div className="border-t-1 border-gray-300 py-10">
+              <h1 className="text-[20px] font-[500]"> Address</h1>
+              {formData.billing_addresses.map((addr, index) => (
+                <div className=" mt-3">
+                  <h2 className="mt-5 text-[18px] font-[500]">
+                    Billing Address
+                  </h2>
+                  <div
+                    key={index}
+                    className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 "
+                  >
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_1"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 1
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_1"
+                        value={addr.address_line_1}
+                        onChange={(e) =>
+                          handleAddressChange("billing_addresses", index, e)
+                        }
+                        placeholder="Enter address 1"
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="address_line_2"
+                        className="font-[500] text-gray-700"
+                      >
+                        Address Line 2
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line_2"
+                        value={addr.address_line_2}
+                        onChange={(e) =>
+                          handleAddressChange("billing_addresses", index, e)
+                        }
+                        placeholder="Enter address 2"
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                  </div>
+                  <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="city"
+                        className="font-[500] text-gray-700"
+                      >
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={addr.city}
+                        onChange={(e) =>
+                          handleAddressChange("billing_addresses", index, e)
+                        }
+                        placeholder="Enter your city"
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="postal_code"
+                        className="font-[500] text-gray-700"
+                      >
+                        Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        name="postal_code"
+                        value={addr.postal_code}
+                        onChange={(e) =>
+                          handleAddressChange("billing_addresses", index, e)
+                        }
+                        placeholder="Enter postal code"
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="country"
+                        className="font-[500] text-gray-700"
+                      >
+                        Country
+                      </label>
+                      <input
+                        type="text"
+                        name="country"
+                        value={addr.country}
+                        onChange={(e) =>
+                          handleAddressChange("billing_addresses", index, e)
+                        }
+                        placeholder="Enter postal code"
+                        className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                      />
+                    </div>
+                    {/* <button
+              type="button"
+              onClick={() => removeAddress("billing_addresses", index)}
+              className="text-red-600 border-1 border-red-600 py-1 px-4 rounded-[6px] mt-4 cursor-pointer w-30"
             >
-              Submit Order
-            </button>
-          </div>
-        </form>
+              Remove
+            </button> */}
+                  </div>
+                </div>
+              ))}
+              {/* <button
+                type="button"
+                onClick={() => addAddress("billing_addresses")}
+                className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
+              >
+                Add Address
+              </button> */}
+              <div className="mt-3 pb-8 ">
+                <h2 className="mt-5 text-[18px] font-[500]">
+                  Shipping Address
+                </h2>
+                {formData.shipping_addresses.map((addr, index) => (
+                  <>
+                    <div
+                      key={index}
+                      className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6 "
+                    >
+                      <div className="flex flex-col gap-2">
+                        <label
+                          htmlFor="address_line_1"
+                          className="font-[500] text-gray-700"
+                        >
+                          Address Line 1
+                        </label>
+                        <input
+                          type="text"
+                          name="address_line_1"
+                          value={addr.address_line_1}
+                          onChange={(e) =>
+                            handleAddressChange("shipping_addresses", index, e)
+                          }
+                          placeholder="Enter address 1"
+                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label
+                          htmlFor="address_line_2"
+                          className="font-[500] text-gray-700"
+                        >
+                          Address Line 2
+                        </label>
+                        <input
+                          type="text"
+                          name="address_line_2"
+                          value={addr.address_line_2}
+                          onChange={(e) =>
+                            handleAddressChange("shipping_addresses", index, e)
+                          }
+                          placeholder="Enter address 2"
+                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        />
+                      </div>
+                    </div>
+                    <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
+                      <div className="flex flex-col gap-2">
+                        <label
+                          htmlFor="city"
+                          className="font-[500] text-gray-700"
+                        >
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={addr.city}
+                          onChange={(e) =>
+                            handleAddressChange("shipping_addresses", index, e)
+                          }
+                          placeholder="Enter your city"
+                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label
+                          htmlFor="postal_code"
+                          className="font-[500] text-gray-700"
+                        >
+                          Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          name="postal_code"
+                          value={addr.postal_code}
+                          onChange={(e) =>
+                            handleAddressChange("shipping_addresses", index, e)
+                          }
+                          placeholder="Enter postal code"
+                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label
+                          htmlFor="country"
+                          className="font-[500] text-gray-700"
+                        >
+                          Country
+                        </label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={addr.country}
+                          onChange={(e) =>
+                            handleAddressChange("shipping_addresses", index, e)
+                          }
+                          placeholder="Enter postal code"
+                          className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
+                        />
+                      </div>
+                      {/* <button
+                        type="button"
+                        onClick={() =>
+                          removeAddress("shipping_addresses", index)
+                        }
+                        className="text-red-600"
+                      >
+                        ❌ Remove
+                      </button> */}
+                    </div>
+                  </>
+                ))}
+                {/* <button
+                  type="button"
+                  onClick={() => addAddress("shipping_addresses")}
+                  className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
+                >
+                  Add Address
+                </button> */}
+              </div>
+            </div>
+            {/* Address Details ends*/}
+
+            <div className="flex gap-4 w-full justify-end">
+              <button
+                type="reset"
+                className="py-3 px-6 text-medium text-[#4B215F] border-1 border-[#4B215F] rounded-[30px] font-[500] hover:text-white hover:bg-[#4B215F] hover:cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="py-3 px-6 text-medium text-white hover:bg-[#4B215F] rounded-[30px] font-[500] bg-[#6e4581] hover:cursor-pointer"
+              >
+                Submit Order
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

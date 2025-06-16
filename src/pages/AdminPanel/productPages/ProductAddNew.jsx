@@ -241,6 +241,44 @@ export default function Uploadpro() {
       });
   }, []);
 
+
+
+  /*Meter Selection dropdown----------------------------------------------------------------- */
+  
+const meterOptions = [
+  "1-10 meters",
+  "10-30 meters",
+  "30+ meters"
+];
+
+
+  const [selections, setSelections] = useState([
+    { meterRange: "", price: "", discount: "" }
+  ]);
+
+  const handleChange = (index, field, value) => {
+    const updated = [...selections];
+    updated[index][field] = value;
+    setSelections(updated);
+  };
+
+  const handleAdd = () => {
+    setSelections((prev) => [
+      ...prev,
+      { meterRange: "", price: "", discount: "" }
+    ]);
+  };
+
+  const handleRemove = (index) => {
+    setSelections((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const selectedRanges = selections.map((item) => item.meterRange).filter(Boolean);
+
+  const getAvailableOptions = () =>
+    meterOptions.filter((opt) => !selectedRanges.includes(opt));
+
+
   return (
     <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
       <div className="w-full min-h-[90vh] px-5 pr-5 lg:pr-10 pt-14 lg:pt-6 py-6 bg-[#F7F7F7]">
@@ -584,6 +622,66 @@ export default function Uploadpro() {
                     />
                   </label>
                 </div>
+
+ <div className="space-y-4 bg-gray-300 p-4 rounded-md">
+      {selections.map((item, index) => (
+        <div key={index} className="flex items-center space-x-4 border-1 border-gray-500">
+          {/* Dropdown */}
+          <select
+            className="border border-gray-300 rounded px-2 py-1 w-48"
+            value={item.meterRange}
+            onChange={(e) => handleChange(index, "meterRange", e.target.value)}
+          >
+            <option value="">Select Range</option>
+            {meterOptions
+              .filter((opt) => opt === item.meterRange || !selectedRanges.includes(opt))
+              .map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+          </select>
+
+          {/* Show inputs if dropdown selected */}
+          {item.meterRange && (
+            <>
+              <input
+                type="number"
+                placeholder="Price"
+                className="border border-gray-300 rounded px-2 py-1 w-32"
+                value={item.price}
+                onChange={(e) => handleChange(index, "price", e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Discount"
+                className="border border-gray-300 rounded px-2 py-1 w-32"
+                value={item.discount}
+                onChange={(e) => handleChange(index, "discount", e.target.value)}
+              />
+              <button
+              type="button"
+                onClick={() => handleRemove(index)}
+                className="text-red-500 hover:underline"
+              >
+                ❌
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+
+      {/* Add More Button */}
+      {getAvailableOptions().length > 0 && (
+        <button
+        type="button"
+          onClick={handleAdd}
+          className="mt-2 px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          + Add More
+        </button>
+      )}
+    </div>
 
                 <div className="w-full flex gap-5">
                   <div className="flex flex-col gap-1  w-[50%]">

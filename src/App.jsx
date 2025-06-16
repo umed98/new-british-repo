@@ -1,10 +1,5 @@
 import React, { useEffect } from "react";
-import {
-  Routes,
-  Route,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
 import Login from "./pages/LoginFlow/Login.jsx";
 import ResetPassword from "./pages/LoginFlow/ResetPassword.jsx";
@@ -38,6 +33,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AddCus from "./pages/AdminPanel/customerPages/AddCus.jsx";
+import AddOrder from "./pages/AdminPanel/orderPages/AddOrder.jsx";
 
 // Component to handle layout
 const Layout = ({ children }) => {
@@ -92,7 +88,6 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/reset-success" element={<ResetSuccess />} />
         <Route path="/add-cus" element={<AddCus />} />
-
 
         {/* Protected Routes */}
         <Route
@@ -160,6 +155,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AddNewOrder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-order"
+          element={
+            <ProtectedRoute>
+              <AddOrder />
             </ProtectedRoute>
           }
         />

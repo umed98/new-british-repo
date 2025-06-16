@@ -6,6 +6,7 @@ import arrowDown from "../assets/images/arrowDown.png"
 import demo from "../assets/images/demo.jpg"
 import masterCard from "../assets/images/masterCard.png"
 import checkbox from "../assets/images/checkbox.gif"
+import CircleLoader from "../assets/images/CircleLoader.gif"
 
 
 export const asset = {
@@ -17,6 +18,7 @@ export const asset = {
    arrowDown,
    demo,
    masterCard,
-   checkbox
+   checkbox,
+   CircleLoader
 
 }
