@@ -1,0 +1,27 @@
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME}\.html -f
+RewriteRule ^(.*)$ $1.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ $1.php
+# Return 404 if original request is .php And .html
+RewriteCond %{THE_REQUEST} "^[^ ]* .*?\.php[? ].*$"
+RewriteRule .* - [L,R=404]
+RewriteCond %{THE_REQUEST} "^[^ ]* .*?\.html[? ].*$"
+RewriteRule .* - [L,R=404]
+#ErrorDocument 404 https://allenhouse.fastranking.tech//404
+ErrorDocument 500  https://allenhouse.fastranking.tech/500
+
+
+
+RewriteRule ^home index.php [NC,L]
+ 
+
+RewriteRule ^business-package/([A-Za-z0-9-]+)  business-package.php?category_slug=$1  [NC,L]
+RewriteRule ^consumer-package/([A-Za-z0-9-]+)  consumer-package.php?category_slug=$1  [NC,L]
+RewriteRule ^consumer-packages/([A-Za-z0-9-]+) consumer-package.php?sub_cat_slug=$1 [NC,L]
+
+RewriteRule ^business-buy-now/([A-Za-z0-9-]+)    buy-now.php?package_slug=$1  [NC,L]
+RewriteRule ^consumer-buy-now/([A-Za-z0-9-]+) consumer-buy-now.php?package_slug=$1  [NC,L]
+ 
