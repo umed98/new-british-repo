@@ -24,13 +24,13 @@ const AddOrder = () => {
     },
     items: [
       {
-        sku: "",
-        product_id: "",
+        type: "meter",
         variant_id: "",
+        meter_range_id: "",
         quantity: "",
-        size_id: "",
         price_per_unit: "",
         discount_applied: "",
+        total_price: "",
       },
     ],
     billing_addresses: [
@@ -70,6 +70,12 @@ const AddOrder = () => {
   const [billingAddress, setBillingAddress] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [meterOptions, setMeterOptions] = useState({});
+  const [selection, setSelection] = useState({});
+  const [specialPrices, setSpecialPrices] = useState([]);
+  const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
+
+  console.log("Special Price", specialPrices);
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
@@ -84,63 +90,139 @@ const AddOrder = () => {
   }, []);
 
   // ─── 5) HANDLER: WHEN USER CHOOSES A PRODUCT FOR A GIVEN ITEM INDEX ───────
-  const handleProductChange = async (index, field, value) => {
-    // 1) Update formData.items[index][field] = value
-    const updatedItems = [...formData.items];
-    updatedItems[index][field] = value;
+  // const handleProductChange = async (index, field, value) => {
+  //   // 1) Update formData.items[index][field] = value
+  //   const updatedItems = [...formData.items];
+  //   updatedItems[index][field] = value;
 
-    // 2) Find the full product object by name
+  //   // 2) Find the full product object by name
+  //   const selectedProduct = productOptions.find(
+  //     (p) => p.product_name === value
+  //   );
+
+  //   // 3) Fetch variants for that product and initialize companion states
+  //   if (selectedProduct) {
+  //     try {
+  //       const res = await axios.get(
+  //         `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
+  //       );
+  //       if (res.data.success) {
+  //         const variants = res.data.product.variants || [];
+
+  //         // Store all variants under this item index
+  //         setProductVariants((prev) => ({
+  //           ...prev,
+  //           [index]: variants,
+  //         }));
+
+  //         // Automatically pick a default “color_id” & defaultVariant
+  //         const variantsWithColor = variants.filter((v) => v.color_id);
+  //         let defaultColorId = null;
+  //         let defaultVariant = null;
+
+  //         if (variantsWithColor.length > 0) {
+  //           defaultColorId = variantsWithColor[0].color_id;
+  //           defaultVariant = variantsWithColor.find(
+  //             (v) => v.color_id === defaultColorId
+  //           );
+  //         } else if (variants.length > 0) {
+  //           // Fallback if no color_id present
+  //           defaultColorId = null;
+  //           defaultVariant = variants[0];
+  //         }
+
+  //         setSelectedColor((prev) => ({
+  //           ...prev,
+  //           [index]: defaultColorId,
+  //         }));
+
+  //         setSelectedVariant((prev) => ({
+  //           ...prev,
+  //           [index]: defaultVariant,
+  //         }));
+  //       }
+  //     } catch (err) {
+  //       console.error("Failed to fetch variants:", err);
+  //     }
+  //   }
+
+  //   // 4) Finally write back the updated items array
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     items: updatedItems,
+  //   }));
+  // };
+  const handleProductChange = async (index, field, value) => {
+    const updatedItems = [...formData.items];
+
+    // Always update the changed field first
+    updatedItems[index] = {
+      ...updatedItems[index],
+      [field]: value,
+    };
+
     const selectedProduct = productOptions.find(
       (p) => p.product_name === value
     );
 
-    // 3) Fetch variants for that product and initialize companion states
     if (selectedProduct) {
       try {
         const res = await axios.get(
           `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
         );
+
         if (res.data.success) {
           const variants = res.data.product.variants || [];
+          const defaultVariant =
+            variants.find((v) => v.color_id) || variants[0];
 
-          // Store all variants under this item index
           setProductVariants((prev) => ({
             ...prev,
             [index]: variants,
           }));
 
-          // Automatically pick a default “color_id” & defaultVariant
-          const variantsWithColor = variants.filter((v) => v.color_id);
-          let defaultColorId = null;
-          let defaultVariant = null;
-
-          if (variantsWithColor.length > 0) {
-            defaultColorId = variantsWithColor[0].color_id;
-            defaultVariant = variantsWithColor.find(
-              (v) => v.color_id === defaultColorId
-            );
-          } else if (variants.length > 0) {
-            // Fallback if no color_id present
-            defaultColorId = null;
-            defaultVariant = variants[0];
-          }
-
           setSelectedColor((prev) => ({
             ...prev,
-            [index]: defaultColorId,
+            [index]: defaultVariant.color_id || null,
           }));
 
           setSelectedVariant((prev) => ({
             ...prev,
             [index]: defaultVariant,
           }));
+
+          const defaultMeterOptions = defaultVariant.meter_prices || [];
+
+          setMeterOptions((prev) => ({
+            ...prev,
+            [index]: defaultMeterOptions,
+          }));
+
+          setSelection((prev) => ({
+            ...prev,
+            [index]: {
+              meterRangeId: "",
+              price: "",
+              discount: "",
+              finalPrice: "",
+            },
+          }));
+
+          updatedItems[index] = {
+            ...updatedItems[index],
+            product_id: selectedProduct.id,
+            variant_id: defaultVariant?.id || "",
+            price_per_unit: "",
+            discount_applied: "",
+            meter_range_id: "",
+            total_price: "",
+          };
         }
       } catch (err) {
         console.error("Failed to fetch variants:", err);
       }
     }
 
-    // 4) Finally write back the updated items array
     setFormData((prev) => ({
       ...prev,
       items: updatedItems,
@@ -225,32 +307,36 @@ const AddOrder = () => {
 
   // ─── 11) “ADD MORE” – PUSH A NEW BLANK ITEM + INITIALIZE STATES ─────────────
   const handleAddItem = () => {
-    // 1) Append a brand‐new “item” object to formData.items
+    const newIndex = formData.items.length;
+
     setFormData((prev) => ({
       ...prev,
       items: [
         ...prev.items,
         {
-          sku: "",
-          product_id: "",
+          type: "meter",
           variant_id: "",
           quantity: "",
-          size_id: "",
+          meter_range_id: "",
           price_per_unit: "",
           discount_applied: "",
+          total_price: "",
         },
       ],
     }));
 
-    // 2) Determine newIndex = old length of items (zero‐based)
-    const newIndex = formData.items.length;
-
-    // 3) Initialize companion states at newIndex
     setProductVariants((prev) => ({ ...prev, [newIndex]: [] }));
     setSelectedVariant((prev) => ({ ...prev, [newIndex]: null }));
     setSelectedColor((prev) => ({ ...prev, [newIndex]: null }));
-    setSelectedSizes((prev) => ({ ...prev, [newIndex]: [] }));
-    setQuantities((prev) => ({ ...prev, [newIndex]: {} }));
+    setSelection((prev) => ({
+      ...prev,
+      [newIndex]: {
+        meterRangeId: "",
+        price: "",
+        discount: "",
+        finalPrice: "",
+      },
+    }));
   };
 
   // ─── 12) “REMOVE ITEM” – DELETE A GIVEN ITEM INDEX & ITS STATES ─────────────
@@ -345,6 +431,27 @@ const AddOrder = () => {
     fetchCustomerDetails();
   }, [formData.customer_id]);
 
+  // ---------------------------------------------------Below Special Price APi For Customer Only-------------------------------------------------------
+
+  useEffect(() => {
+    const fetchCustomerSpecialPrices = async () => {
+      if (!formData.customer_id) return;
+      try {
+        const res = await axios.get(
+          `https://britishquilting.fastranking.tech/api/customer/${formData.customer_id}/special-prices`
+        );
+        setSpecialPrices(res.data?.data || []);
+      } catch (err) {
+        console.error("Failed to fetch special prices:", err);
+        setSpecialPrices([]);
+      }
+    };
+
+    fetchCustomerSpecialPrices();
+  }, [formData.customer_id]);
+
+  // ---------------------------------------------------Above Special Price APi For Customer Only-------------------------------------------------------
+
   // When formData.business_id changes, fetch details
   useEffect(() => {
     const fetchBusinessDetails = async () => {
@@ -361,6 +468,27 @@ const AddOrder = () => {
     };
     fetchBusinessDetails();
   }, [formData.business_id]);
+
+  // ---------------------------------------------------Below Special Price APi For Business Only-------------------------------------------------------
+
+  useEffect(() => {
+    const fetchBusinessSpecialPrices = async () => {
+      if (!formData.business_id) return;
+      try {
+        const res = await axios.get(
+          `https://britishquilting.fastranking.tech/api/business/${formData.business_id}/special-prices`
+        );
+        setSpecialBusinessPrices(res.data?.data || []);
+      } catch (err) {
+        console.error("Failed to fetch business special prices:", err);
+        setSpecialBusinessPrices([]);
+      }
+    };
+
+    fetchBusinessSpecialPrices();
+  }, [formData.business_id]);
+
+  // ---------------------------------------------------Above Special Price APi For Business Only-------------------------------------------------------
 
   // Build `options` array for your Select component (B2B vs B2C)
   const options = (isBusiness ? business : customers).map((item) => ({
@@ -414,77 +542,114 @@ const AddOrder = () => {
     }));
   }, [selectedVariant, selectedSizes, quantities]);
 
+  /*Meter Selection dropdown----------------------------------------------------------------- */
+
+  const handleSelectionChange = (index, field, value) => {
+    const updatedSelection = { ...selection[index], [field]: value };
+    const updatedItems = [...formData.items];
+
+    if (field === "meterRangeId") {
+      const range = meterOptions[index]?.find(
+        (opt) => opt.id === parseInt(value)
+      );
+      updatedSelection.price = range?.price || "";
+      updatedSelection.discount = range?.discount || "";
+      updatedSelection.finalPrice = (
+        parseFloat(range?.price || 0) - parseFloat(range?.discount || 0) || 0
+      ).toFixed(2);
+
+      updatedItems[index].meter_range_id = value;
+      updatedItems[index].price_per_unit = range?.price || "";
+      updatedItems[index].discount_applied = range?.discount || "";
+      updatedItems[index].total_price = updatedSelection.finalPrice;
+    } else if (field === "price" || field === "discount") {
+      const price = parseFloat(updatedSelection.price) || 0;
+      const discount = parseFloat(updatedSelection.discount) || 0;
+      updatedSelection.finalPrice = (price - discount).toFixed(2);
+
+      updatedItems[index].price_per_unit = updatedSelection.price;
+      updatedItems[index].discount_applied = updatedSelection.discount;
+      updatedItems[index].total_price = updatedSelection.finalPrice;
+    }
+
+    setSelection((prev) => ({
+      ...prev,
+      [index]: updatedSelection,
+    }));
+
+    setFormData((prev) => ({
+      ...prev,
+      items: updatedItems,
+    }));
+  };
+
   // ─── 16) FORM SUBMISSION ─────────────────────────────────────────────────────
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const updatedFormData = { ...formData };
 
-    // ─── VALIDATION ────────────────────────────────────────────────────────────
+    // ─── BASIC VALIDATIONS ─────────────────────────────────────
     if (!updatedFormData.order?.order_date) {
       alert("Order Date is required.");
       return;
     }
+
     if (updatedFormData.business_id && !selectedCustomerId) {
       alert("Customer is required when business is selected.");
       return;
     }
+
     const hasAtLeastOneProduct = updatedFormData.items.some(
-      (item) => item.product_id && item.product_id.toString().trim() !== ""
+      (item) =>
+        item.variant_id?.toString().trim() !== "" &&
+        item.meter_range_id?.toString().trim() !== "" &&
+        item.quantity?.toString().trim() !== ""
     );
+
     if (!hasAtLeastOneProduct) {
-      alert("Please select at least one product before submitting.");
+      alert("Please fill all product fields before submitting.");
       return;
     }
+
     if (!updatedFormData.order?.payment_method) {
       alert("Payment Method is required.");
       return;
     }
 
-    // ─── CUSTOMER / BUSINESS ID LOGIC ────────────────────────────────────────
+    // ─── CUSTOMER / BUSINESS ID LOGIC ─────────────────────────
     if (updatedFormData.business_id) {
-      if (selectedCustomerId) {
-        updatedFormData.customer_id = selectedCustomerId;
-      }
+      updatedFormData.customer_id = selectedCustomerId || "";
     } else {
-      if (selectedCustomerId) {
-        updatedFormData.customer_id = selectedCustomerId;
-      }
+      if (selectedCustomerId) updatedFormData.customer_id = selectedCustomerId;
       delete updatedFormData.business_id;
     }
 
-    // ─── TRANSFORM “items” INTO FINAL PAYLOAD ─────────────────────────────────
-    const transformedOrderItems = [];
-    updatedFormData.items.forEach((item, index) => {
-      const sizes = selectedSizes[index] || [];
+    // ─── TRANSFORM ITEMS ───────────────────────────────────────
+    const transformedOrderItems = updatedFormData.items.map((item, index) => {
       const variant = selectedVariant[index] || {};
-      const quantityMap = quantities[index] || {};
+      const price_per_unit = parseFloat(item.price_per_unit || 0);
+      const discount_applied = parseFloat(item.discount_applied || 0);
+      const quantity = parseInt(item.quantity || 0);
+      const total_price = (price_per_unit - discount_applied) * quantity;
 
-      sizes.forEach((sizeId) => {
-        const quantity = Number(quantityMap[sizeId] || 0);
-        const price_per_unit = Number(variant.price_per_unit || 0);
-        const discount_applied = Number(variant.discount || 0);
-        const total_price = (price_per_unit - discount_applied) * quantity;
-
-        transformedOrderItems.push({
-          sku: variant.sku || "",
-          product_id: item.product_id,
-          variant_id: variant.id || "",
-          quantity,
-          size_id: sizeId,
-          price_per_unit,
-          discount_applied,
-          total_price,
-        });
-      });
+      return {
+        type: item.type,
+        variant_id: item.variant_id,
+        quantity,
+        meter_range_id: item.meter_range_id,
+        price_per_unit,
+        discount_applied,
+        total_price,
+      };
     });
 
-    // Re‐compute grand total
+    // ─── Compute Grand Total ─────────────────────────────────
     const total_amount = transformedOrderItems.reduce(
       (sum, itm) => sum + itm.total_price,
       0
     );
 
-    // Build final payload
     const finalPayload = {
       ...updatedFormData,
       order: {
@@ -494,13 +659,14 @@ const AddOrder = () => {
       items: transformedOrderItems,
     };
 
-    // BILLING / SHIPPING ADDRESS CHECKS
+    // ─── Handle Address IDs or Raw Addresses ──────────────────
     if (billingAddress) {
       finalPayload.billing_id = billingAddress;
       delete finalPayload.billing_addresses;
     } else {
       delete finalPayload.billing_id;
     }
+
     if (shippingAddress) {
       finalPayload.shipping_id = shippingAddress;
       delete finalPayload.shipping_addresses;
@@ -508,7 +674,7 @@ const AddOrder = () => {
       delete finalPayload.shipping_id;
     }
 
-    // ─── SEND TO API ───────────────────────────────────────────────────────────
+    // ─── Submit ───────────────────────────────────────────────
     axios
       .post(
         "https://britishquilting.fastranking.tech/api/new-order",
@@ -517,27 +683,29 @@ const AddOrder = () => {
       .then((res) => {
         if (res.status === 200 || res.status === 201) {
           alert("Order submitted successfully!");
-          // RESET EVERYTHING
+
+          // Reset form
           setFormData({
             order_type: "",
             business_id: "",
             customer_id: "",
+            billing_id: "",
+            shipping_id: "",
             order: {
-              order_date: formData.order_date,
+              order_date: "",
               status: "pending",
-              total_amount: 0,
-              payment_method: formData.payment_method,
+              total_amount: "",
+              payment_method: "",
               payment_status: "pending",
               source: "crm",
               source_reference: null,
             },
             items: [
               {
-                sku: "",
-                product_id: "",
+                type: "meter",
                 variant_id: "",
                 quantity: "",
-                size_id: "",
+                meter_range_id: "",
                 price_per_unit: "",
                 discount_applied: "",
                 total_price: "",
@@ -562,11 +730,12 @@ const AddOrder = () => {
               },
             ],
           });
+
           setProductVariants({});
           setSelectedVariant({});
-          setSelectedSizes({});
-          setQuantities({});
           setSelectedColor({});
+          setSelection({});
+          setMeterOptions({});
           setBillingAddress(null);
           setShippingAddress(null);
           navigate("/order-display");
@@ -902,6 +1071,46 @@ const AddOrder = () => {
 
                     return (
                       <>
+                        <div className="mt-4">
+                          <h2 className="text-lg font-semibold mb-2 text-gray-800">
+                            Special Prices
+                          </h2>
+                          {specialPrices.length > 0 ? (
+                            <div className="space-y-3">
+                              {specialPrices.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="border border-gray-300 rounded p-3 shadow-sm bg-white"
+                                >
+                                  <p>
+                                    <strong>Variant ID:</strong>{" "}
+                                    {item.variant_id}
+                                  </p>
+                                  <p>
+                                    <strong>Variant Name:</strong>{" "}
+                                    {item.variant_name}
+                                  </p>
+                                  <p>
+                                    <strong>Business Name:</strong>{" "}
+                                    {item.business_name}
+                                  </p>
+                                  <p>
+                                    <strong>Special Price:</strong> £
+                                    {item.special_price}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    <strong>Updated:</strong> {item.updated_at}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              No special prices found for this customer.
+                            </p>
+                          )}
+                        </div>
+
                         <div className="flex items-start gap-10 pt-5 border-t-1 border-gray-300">
                           <label className="flex items-center gap-2 font-[500]">
                             <input
@@ -1026,7 +1235,7 @@ const AddOrder = () => {
 
                   {selectedBusiness?.customers?.length === 1 ? (
                     <div className="mb-4 text-sm">
-                      <h4 className="font-[700] text-md">Customer Details</h4>
+                      <h4 className="font-[700] text-md">Contact Details</h4>
                       <p>
                         <strong>ID:</strong> {selectedBusiness.customers[0].id}
                       </p>
@@ -1045,9 +1254,7 @@ const AddOrder = () => {
                     </div>
                   ) : selectedBusiness?.customers?.length > 1 ? (
                     <div className="text-sm mb-4">
-                      <h4 className="font-[700] text-md mb-2">
-                        Customers List
-                      </h4>
+                      <h4 className="font-[700] text-md mb-2">Contact List</h4>
                       {selectedBusiness.customers.map((customer) => (
                         <div key={customer.id} className="mb-3">
                           <label className="flex items-center gap-2">
@@ -1082,6 +1289,34 @@ const AddOrder = () => {
                       ))}
                     </div>
                   ) : null}
+
+                  <div className="mt-4">
+                    <h2 className="text-lg font-semibold mb-2 text-gray-800">
+                      Business Special Prices
+                    </h2>
+                    {specialBusinessPrices.length > 0 ? (
+                      <div className="space-y-3">
+                        {specialBusinessPrices.map((item) => (
+                          <div
+                            key={item.id}
+                            className="border border-gray-300 rounded p-3 shadow-sm bg-white"
+                          >
+                            <p>
+                              <strong>Variant ID:</strong> {item.variant_id}
+                            </p>
+                            <p>
+                              <strong>Special Price:</strong> £
+                              {item.special_price}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No special prices found for this business.
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex items-start gap-10 text-sm pt-5 border-t-1 border-gray-300">
                     {/* Billing Addresses */}
@@ -1533,7 +1768,7 @@ const AddOrder = () => {
                       </div>
 
                       {/* Right: Variant List */}
-                      {productVariants[index]?.length > 0 && (
+                      {/* {productVariants[index]?.length > 0 && (
                         <div className="w-2/3">
                           <p className="text-sm font-semibold mb-2">
                             Variants:
@@ -1557,7 +1792,7 @@ const AddOrder = () => {
                             ))}
                           </div>
                         </div>
-                      )}
+                      )} */}
                       {/* Color Selection if multiple colors available */}
                       {/* {productVariants[index] &&
                         productVariants[index].some((v) => v.color_id) && (
@@ -1613,25 +1848,271 @@ const AddOrder = () => {
                                 readOnly
                               />
                             </p>
-                            <p className="flex flex-col gap-1">
-                              <strong className="text-sm">Price:</strong>{" "}
+
+                            {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
+                            <div className="">
+                              <div className="flex items-end flex-wrap gap-6">
+                                {/* Meter Range Section */}
+                                <div className="flex flex-col gap-1">
+                                  {/* Selected Range Label */}
+                                  {selection[index]?.meterRangeId &&
+                                    (() => {
+                                      const selectedRange = meterOptions[
+                                        index
+                                      ]?.find(
+                                        (o) =>
+                                          o.id === selection[index].meterRangeId
+                                      );
+                                      return (
+                                        selectedRange && (
+                                          <span className="text-sm text-gray-600 min-w-[200px]">
+                                            Range:{" "}
+                                            <strong>
+                                              {selectedRange.range_label}
+                                            </strong>{" "}
+                                            ({selectedRange.min_meter}m -{" "}
+                                            {selectedRange.max_meter}m)
+                                          </span>
+                                        )
+                                      );
+                                    })()}
+
+                                  {/* Dropdown */}
+                                  <select
+                                    className="bg-white rounded px-2 py-1 w-52 border"
+                                    value={selection[index]?.meterRangeId || ""}
+                                    onChange={(e) =>
+                                      handleSelectionChange(
+                                        index,
+                                        "meterRangeId",
+                                        parseInt(e.target.value)
+                                      )
+                                    }
+                                  >
+                                    <option value="">Select Range</option>
+                                    {meterOptions[index]?.map((opt) => (
+                                      <option key={opt.id} value={opt.id}>
+                                        {opt.range_label} ({opt.min_meter}m -{" "}
+                                        {opt.max_meter}m)
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Price"
+                                  >
+                                    Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`price-${index}`}
+                                    placeholder="price"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    value={selection[index]?.price || ""}
+                                    onChange={(e) =>
+                                      handleSelectionChange(
+                                        index,
+                                        "price",
+                                        e.target.value
+                                      )
+                                    }
+                                    readOnly
+                                  />
+                                </div>
+
+                                {/* Discount */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Discount"
+                                  >
+                                    Discount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`discount-${index}`}
+                                    placeholder="discount"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    value={selection[index]?.discount || ""}
+                                    onChange={(e) =>
+                                      handleSelectionChange(
+                                        index,
+                                        "discount",
+                                        e.target.value
+                                      )
+                                    }
+                                    readOnly
+                                  />
+                                </div>
+
+                                {/* Final Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Final Price"
+                                  >
+                                    Final Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`final-price-${index}`}
+                                    placeholder="final price"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-32 text-green-700"
+                                    value={selection[index]?.finalPrice || ""}
+                                    readOnly
+                                  />
+                                </div>
+
+                                {/* <div className="flex flex-col gap-1">
+                                <label className="text-black font-[500] text-sm" htmlFor="Final Price">
+                                  Quantity
+                                </label>
                               <input
                                 type="number"
-                                placeholder="Enter price"
-                                value={
-                                  selectedVariant[index]?.price_per_unit || ""
-                                }
-                                onChange={(e) =>
-                                  handleVariantFieldChange(
-                                    index,
-                                    "price_per_unit",
-                                    e.target.value
-                                  )
-                                }
-                                className="py-1 px-4 border border-gray-400 rounded bg-white"
-                              />
-                            </p>
-                            <p className="flex flex-col gap-1">
+                                className="border border-gray-300 px-2 bg-white py-1 rounded"
+                                placeholder="quantity"
+                                value={formData.items[index].quantity}
+                               onChange={(e) => {
+                                  const quantity = parseInt(e.target.value) || 0;
+                                  const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
+                                  const totalPrice = quantity * finalPrice;
+
+                                  const updatedItems = [...formData.items];
+                                  updatedItems[index].quantity = quantity;
+                                  updatedItems[index].total_price = totalPrice;
+
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    items: updatedItems,
+                                  }));
+                                }}
+
+                                />
+                                </div> */}
+
+                                {/* Quantity Input - Bound to selected range */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Final Price"
+                                  >
+                                    Quantity
+                                  </label>
+                                  {(() => {
+                                    const selectedRange = meterOptions[
+                                      index
+                                    ]?.find(
+                                      (o) =>
+                                        o.id === selection[index]?.meterRangeId
+                                    );
+
+                                    const minQty = selectedRange
+                                      ? Math.ceil(
+                                          parseFloat(selectedRange.min_meter)
+                                        )
+                                      : 0;
+                                    const maxQty = selectedRange
+                                      ? Math.floor(
+                                          parseFloat(selectedRange.max_meter)
+                                        )
+                                      : Infinity;
+
+                                    return (
+                                      <input
+                                        type="number"
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                        placeholder={`quantity`}
+                                        min={minQty}
+                                        max={maxQty}
+                                        value={formData.items[index].quantity}
+                                        onChange={(e) => {
+                                          const input = e.target.value;
+
+                                          // Allow empty input for smoother typing
+                                          if (
+                                            input === "" ||
+                                            /^\d+$/.test(input)
+                                          ) {
+                                            const updatedItems = [
+                                              ...formData.items,
+                                            ];
+                                            updatedItems[index].quantity =
+                                              input;
+                                            setFormData((prev) => ({
+                                              ...prev,
+                                              items: updatedItems,
+                                            }));
+                                          }
+                                        }}
+                                        onBlur={(e) => {
+                                          let quantity =
+                                            parseInt(e.target.value) || 0;
+
+                                          // Clamp on blur
+                                          if (quantity < minQty)
+                                            quantity = minQty;
+                                          if (quantity > maxQty)
+                                            quantity = maxQty;
+
+                                          const finalPrice =
+                                            parseFloat(
+                                              selection[index]?.finalPrice
+                                            ) || 0;
+                                          const totalPrice =
+                                            quantity * finalPrice;
+
+                                          const updatedItems = [
+                                            ...formData.items,
+                                          ];
+                                          updatedItems[index].quantity =
+                                            quantity;
+                                          updatedItems[index].total_price =
+                                            totalPrice;
+
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            items: updatedItems,
+                                          }));
+                                        }}
+                                      />
+                                    );
+                                  })()}
+                                </div>
+
+                                {/* Total Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Total Price"
+                                  >
+                                    Total Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="total price"
+                                    readOnly
+                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                    value={
+                                      formData.items[index].total_price !==
+                                      undefined
+                                        ? formData.items[index].total_price
+                                        : ""
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* <p className="flex flex-col gap-1">
                               <strong className="text-sm">Discount:</strong>{" "}
                               <input
                                 type="number"
@@ -1646,10 +2127,9 @@ const AddOrder = () => {
                                 }
                                 className="py-1 px-4 border border-gray-400 rounded bg-white"
                               />
-                            </p>
-                          </div>
+                            </p> */}
 
-                          <p className="font-bold mt-4">Sizes:</p>
+                {/* <p className="font-bold mt-4">Sizes:</p>
                           <div className="space-y-3">
                             {selectedVariant[index].inventories.map((inv) => (
                               <div
@@ -1693,9 +2173,9 @@ const AddOrder = () => {
                                 />
                               </div>
                             ))}
-                          </div>
-                        </div>
-                        <div className="mt-4 p-3 border-1 border-gray-400 rounded bg-white">
+                          </div> */}
+
+                {/* <div className="mt-4 p-3 border-1 border-gray-400 rounded bg-white">
                           <p className="">
                             <strong className="mr-4">Price:</strong> £
                             {selectedVariant[index]?.price_per_unit || 0}
@@ -1729,11 +2209,7 @@ const AddOrder = () => {
                               return price * totalQty || 0;
                             })()}
                           </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                        </div> */}
 
                 {/* ─── 19) ADD MORE BUTTON BELOW ALL ITEMS ───────────────────────────────── */}
                 <div className="">
