@@ -1949,51 +1949,6 @@ const AddOrder = () => {
                                   />
                                 </div>
 
-                                {/* Final Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Final Price"
-                                  >
-                                    Final Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`final-price-${index}`}
-                                    placeholder="final price"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-32 text-green-700"
-                                    value={selection[index]?.finalPrice || ""}
-                                    readOnly
-                                  />
-                                </div>
-
-                                {/* <div className="flex flex-col gap-1">
-                                <label className="text-black font-[500] text-sm" htmlFor="Final Price">
-                                  Quantity
-                                </label>
-                              <input
-                                type="number"
-                                className="border border-gray-300 px-2 bg-white py-1 rounded"
-                                placeholder="quantity"
-                                value={formData.items[index].quantity}
-                               onChange={(e) => {
-                                  const quantity = parseInt(e.target.value) || 0;
-                                  const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
-                                  const totalPrice = quantity * finalPrice;
-
-                                  const updatedItems = [...formData.items];
-                                  updatedItems[index].quantity = quantity;
-                                  updatedItems[index].total_price = totalPrice;
-
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    items: updatedItems,
-                                  }));
-                                }}
-
-                                />
-                                </div> */}
-
                                 {/* Quantity Input - Bound to selected range */}
                                 <div className="flex flex-col gap-1">
                                   <label
@@ -2112,6 +2067,53 @@ const AddOrder = () => {
                     )}
                   </div>
                 ))}
+
+                                {/* Final Price */}
+                                {/* <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Final Price"
+                                  >
+                                    Final Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`final-price-${index}`}
+                                    placeholder="final price"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-32 text-green-700"
+                                    value={selection[index]?.finalPrice || ""}
+                                    readOnly
+                                  />
+                                </div> */}
+
+                                {/* <div className="flex flex-col gap-1">
+                                <label className="text-black font-[500] text-sm" htmlFor="Final Price">
+                                  Quantity
+                                </label>
+                              <input
+                                type="number"
+                                className="border border-gray-300 px-2 bg-white py-1 rounded"
+                                placeholder="quantity"
+                                value={formData.items[index].quantity}
+                               onChange={(e) => {
+                                  const quantity = parseInt(e.target.value) || 0;
+                                  const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
+                                  const totalPrice = quantity * finalPrice;
+
+                                  const updatedItems = [...formData.items];
+                                  updatedItems[index].quantity = quantity;
+                                  updatedItems[index].total_price = totalPrice;
+
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    items: updatedItems,
+                                  }));
+                                }}
+
+                                />
+                                </div> */}
+
+
                 {/* <p className="flex flex-col gap-1">
                               <strong className="text-sm">Discount:</strong>{" "}
                               <input

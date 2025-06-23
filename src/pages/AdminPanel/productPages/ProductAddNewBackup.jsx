@@ -5,87 +5,28 @@ import axios from "axios";
 
 export default function Uploadpro() {
   // Product state
-  // const [product, setProduct] = useState({
-  //   product_name: "",
-  //   brand_id: "",
-  //   category_id: "",
-  //   slug: "",
-  //   description: "",
-  //   created_by: "",
-  // });
+  const [product, setProduct] = useState({
+    product_name: "",
+    brand_id: "",
+    category_id: "",
+    slug: "",
+    description: "",
+    created_by: "",
+  });
 
-  // // Variants state: array of variants
-  // const [variants, setVariants] = useState([
-  //   {
-  //     color_id: "",
-
-  //     description: "",
-  //     price: "",
-  //     discount: "",
-  //     is_active: true,
-  //     inventory: { quantity: "" },
-  //     images: [], // files here
-  //   },
-  // ]);
-
-const [product, setProduct] = useState({
-  brand_id: "",
-  supplier_id: "",
-  base_sku: "PLF123",
-  category_id: "",
-  description: "",
-  base_price: "",
-  base_discount: "",
-  created_by: "",
-  is_active: ""
-});
-
-const [variants, setVariants] = useState([
-  {
-      sku: "",
+  // Variants state: array of variants
+  const [variants, setVariants] = useState([
+    {
       color_id: "",
-      width_cm: "",
-      stock_qty: "",
-      use_meter_pricing: true,
+      size_id: "",
+      description: "",
       price: "",
       discount: "",
-      description: "",
-      is_active: "",
-      meta_description: "",
-      meta_keywords: "",
-      og_title: "",
-      og_description: "",
-      meter_ranges: [
-        { meter_range_id: "", price: "", discount: "" },
-        { meter_range_id: "", price: "", discount: "" }
-      ],
-      images: [
-        { order: "", is_primary: "" }
-      ]
+      is_active: true,
+      inventory: { quantity: "" },
+      images: [], // files here
     },
-])
-
-
-    // {
-    //   "sku": "AL-FABRIC-BLUE-80",
-    //   "color_id": 4,
-    //   "width_cm": 80,
-    //   "stock_qty": 30,
-    //   "use_meter_pricing": false,
-    //   "price": 95,
-    //   "discount": 8,
-    //   "description": "Blue 80cm standard",
-    //   "is_active": 1,
-    //   "meta_description": "Blue standard",
-    //   "meta_keywords": "blue, lining",
-    //   "og_title": "Blue Lining",
-    //   "og_description": "No meter range",
-    //   "images": [
-    //     { "order": 1, "is_primary": true }
-    //   ]
-    // },
-
-  const [isMeter, setIsMeter] = useState(false);
+  ]);
 
   // Main image file
   const [mainImageFile, setMainImageFile] = useState(null);
@@ -99,7 +40,6 @@ const [variants, setVariants] = useState([
   // Handlers for variant fields
   const handleVariantChange = (index, e) => {
     const { name, value, type, checked } = e.target;
-    
     setVariants((prev) => {
       const newVariants = [...prev];
       if (name === "is_active") {
@@ -114,31 +54,21 @@ const [variants, setVariants] = useState([
   };
 
   // Add a new variant
-const addVariant = () => {
-  setVariants((prev) => [
-    ...prev,
-    {
-      sku: "",
-      color_id: "",
-      width_cm: "",
-      stock_qty: "",
-      use_meter_pricing: true,
-      price: "",
-      discount: "",
-      description: "",
-      is_active: "",
-      meta_description: "",
-      meta_keywords: "",
-      og_title: "",
-      og_description: "",
-      meter_ranges: [
-        { meter_range_id: "", price: "", discount: "" }
-      ],
-      images: []
-    },
-  ]);
-};
-
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      {
+        color_id: "",
+        size_id: "",
+        description: "",
+        price: "",
+        discount: "",
+        is_active: true,
+        inventory: { quantity: "" },
+        images: [],
+      },
+    ]);
+  };
 
   // Remove a variant
   const removeVariant = (index) => {
@@ -196,7 +126,7 @@ const addVariant = () => {
     // We'll send images separately in formData as files
     const variantsData = variants.map((v) => ({
       color_id: Number(v.color_id),
-
+      size_id: Number(v.size_id),
       description: v.description,
       price: Number(v.price),
       discount: Number(v.discount),
@@ -259,16 +189,13 @@ const addVariant = () => {
 
   /*------------- Fetching Category Id ---------------*/
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
-  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState(null);
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/category-new")
+      .get("https://britishquilting.fastranking.tech/api/category")
       .then((response) => {
         if (response.data.status) {
-          setCategories(response.data.data); // data is already in tree format
+          setCategories(response.data.data);
         } else {
           console.error("Failed to fetch categories:", response.data.message);
         }
@@ -277,34 +204,6 @@ const addVariant = () => {
         console.error("Error fetching categories:", error);
       });
   }, []);
-
-  const handleMainCategoryChange = (e) => {
-    const selectedId = parseInt(e.target.value);
-    const mainCat = categories.find((cat) => cat.id === selectedId);
-    setSelectedCategory(mainCat);
-    setSelectedSubCategory(null);
-    setSelectedSubSubCategory(null);
-    setProduct((prev) => ({ ...prev, category_id: selectedId })); // set main category
-  };
-
-  const handleSubCategoryChange = (e) => {
-    const selectedId = parseInt(e.target.value);
-    const subCat = selectedCategory?.children_recursive.find(
-      (cat) => cat.id === selectedId
-    );
-    setSelectedSubCategory(subCat);
-    setSelectedSubSubCategory(null);
-    setProduct((prev) => ({ ...prev, category_id: selectedId })); // set sub category
-  };
-
-  const handleSubSubCategoryChange = (e) => {
-    const selectedId = parseInt(e.target.value);
-    const subSubCat = selectedSubCategory?.children_recursive.find(
-      (cat) => cat.id === selectedId
-    );
-    setSelectedSubSubCategory(subSubCat);
-    setProduct((prev) => ({ ...prev, category_id: selectedId })); // set sub-sub category
-  };
 
   /*------------- Fetching Colors Id ---------------*/
   const [colors, setColors] = useState([]);
@@ -438,107 +337,60 @@ const addVariant = () => {
                 </div>
               </label>
 
-              <div class="flex flex-col gap-5">
-                {/* <label htmlFor="" className="flex flex-col gap-2">
-                  <span className=" text-[16px] font-[500]">Category ID</span>
-                  <div className="relative w-full">
-                    <select
-                      name="category_id"
-                      id="category_id"
-                      value={product.category_id}
-                      onChange={handleProductChange}
-                      required
-                      className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="" selected disabled>
-                        -- Select Category --
-                      </option>
-                      {categories.map((category) => (
-                        <option
-                          className="cursor-pointer"
-                          key={category.id}
-                          value={category.id}
-                        >
-                          {category.id} - {category.category_name}
-                        </option>
-                      ))}
-                    </select>
-
-                  
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </label> */}
-
-                {/* Main Category */}
-                <label className="flex flex-col gap-2">
-                  <span className="text-[16px] font-[500]">Main Category</span>
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Category ID</span>
+                {/* <input
+                  type="number"
+                  name="category_id"
+                  placeholder="Category ID"
+                  value={product.category_id}
+                  onChange={handleProductChange}
+                  required
+                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
+                /> */}
+                <div className="relative w-full">
                   <select
-                    onChange={handleMainCategoryChange}
+                    name="category_id"
+                    id="category_id"
+                    value={product.category_id}
+                    onChange={handleProductChange}
+                    required
                     className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">-- Select Main Category --</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.category_name}
+                    <option value="" selected disabled>
+                      -- Select Category --
+                    </option>
+                    {categories.map((category) => (
+                      <option
+                        className="cursor-pointer"
+                        key={category.id}
+                        value={category.id}
+                      >
+                        {category.id} - {category.category_name}
                       </option>
                     ))}
                   </select>
-                </label>
 
-                {/* Sub Category */}
-                {selectedCategory?.children_recursive?.length > 0 && (
-                  <label className="flex flex-col gap-2">
-                    <span className="text-[16px] font-[500]">Sub Category</span>
-                    <select
-                      onChange={handleSubCategoryChange}
-                      className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  {/* Custom dropdown arrow */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
                     >
-                      <option value="">-- Select Sub Category --</option>
-                      {selectedCategory.children_recursive.map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.category_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </label>
 
-                {/* Sub-Sub Category */}
-                {selectedSubCategory?.children_recursive?.length > 0 && (
-                  <label className="flex flex-col gap-2">
-                    <span className="text-[16px] font-[500]">
-                      Sub-Sub Category
-                    </span>
-                    <select
-                      onChange={handleSubSubCategoryChange}
-                      className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Sub-Sub Category --</option>
-                      {selectedSubCategory.children_recursive.map((subSub) => (
-                        <option key={subSub.id} value={subSub.id}>
-                          {subSub.category_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
-
-              {/* <label htmlFor="" className="flex flex-col gap-2">
+              <label htmlFor="" className="flex flex-col gap-2">
                 <span className=" text-[16px] font-[500]">Slug</span>
                 <input
                   type="text"
@@ -549,7 +401,7 @@ const addVariant = () => {
                   required
                   className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
                 />
-              </label> */}
+              </label>
 
               <label htmlFor="" className="flex flex-col gap-2">
                 <span className=" text-[16px] font-[500]">Created By</span>
@@ -572,47 +424,6 @@ const addVariant = () => {
                   value={product.description}
                   onChange={handleProductChange}
                   rows={4}
-                  required
-                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div class="py-6 px-8 ">
-            <div className="grid grid-cols-2 gap-5">
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Base Sku</span>
-                <input
-                  type="number"
-                  name="base_sku"
-                  placeholder="Bse SKU"
-                  value={product.base_sku}
-                  onChange={handleProductChange}
-                  required
-                  className="border-1  border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
-              </label>
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Base Price</span>
-                <input
-                  type="number"
-                  name="created_by"
-                  placeholder="Base Price"
-                  value={product.base_price}
-                  onChange={handleProductChange}
-                  required
-                  className="border-1  border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
-              </label>
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Base Discount</span>
-                <input
-                  type="number"
-                  name="base_discount"
-                  placeholder="Base Discount"
-                  value={product.base_discount}
-                  onChange={handleProductChange}
                   required
                   className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
                 />
@@ -710,20 +521,7 @@ const addVariant = () => {
                     </div>
                   </label>
 
-                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
-                    <span className=" text-[16px] font-[500]">Width</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="width_cm"
-                      placeholder="Width"
-                      value={variant.width_cm}
-                      onChange={(e) => handleVariantChange(idx, e)}
-                      required
-                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
-                    />
-                  </label>
-                  {/* <div htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                  <div htmlFor="" className="flex flex-col gap-2 w-[50%]">
                     <span className=" text-[16px] font-[500]">Size ID</span>
                     <div className="relative w-full">
                       <select
@@ -741,7 +539,7 @@ const addVariant = () => {
                         ))}
                       </select>
 
-                     
+                      {/* Custom dropdown arrow */}
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                         <svg
                           className="w-4 h-4"
@@ -758,7 +556,41 @@ const addVariant = () => {
                         </svg>
                       </div>
                     </div>
-                  </div> */}
+                    <div className="flex flex-col gap-4 w-full">
+                      <div className="flex gap-3 w-full items-center">
+                        <span className="font-[500]">xc - </span>
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="number"
+                            name="size_1"
+                            placeholder="quantity"
+                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
+                          />
+                        </div>
+                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="flex gap-3 items-center">
+                        <span className="font-[500]">l - </span>
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="number"
+                            name="size_1"
+                            placeholder="quantity"
+                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
+                          />
+                        </div>
+                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">
+                          Remove
+                        </button>
+                      </div>
+                      <button className="text-white bg-green-500 rounded-[8px] py-2 px-6 w-50 font-[500]">
+                        Add more size & qty.
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="w-full flex gap-5">
@@ -790,17 +622,90 @@ const addVariant = () => {
                   </label>
                 </div>
 
+                <div className="space-y-4 bg-gray-300 p-4 rounded-md">
+                  {selections.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-4 border-1 border-gray-500"
+                    >
+                      {/* Dropdown */}
+                      <select
+                        className="border border-gray-300 rounded px-2 py-1 w-48"
+                        value={item.meterRange}
+                        onChange={(e) =>
+                          handleChange(index, "meterRange", e.target.value)
+                        }
+                      >
+                        <option value="">Select Range</option>
+                        {meterOptions
+                          .filter(
+                            (opt) =>
+                              opt === item.meterRange ||
+                              !selectedRanges.includes(opt)
+                          )
+                          .map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                      </select>
+
+                      {/* Show inputs if dropdown selected */}
+                      {item.meterRange && (
+                        <>
+                          <input
+                            type="number"
+                            placeholder="Price"
+                            className="border border-gray-300 rounded px-2 py-1 w-32"
+                            value={item.price}
+                            onChange={(e) =>
+                              handleChange(index, "price", e.target.value)
+                            }
+                          />
+                          <input
+                            type="number"
+                            placeholder="Discount"
+                            className="border border-gray-300 rounded px-2 py-1 w-32"
+                            value={item.discount}
+                            onChange={(e) =>
+                              handleChange(index, "discount", e.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(index)}
+                            className="text-red-500 hover:underline"
+                          >
+                            ❌
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Add More Button */}
+                  {getAvailableOptions().length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAdd}
+                      className="mt-2 px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      + Add More
+                    </button>
+                  )}
+                </div>
+
                 <div className="w-full flex gap-5">
                   <div className="flex flex-col gap-1  w-[50%]">
                     <label htmlFor="" className="flex flex-col gap-2">
                       <span className=" text-[16px] font-[500]">
-                        Stock Quantity
+                        Inventory Quantity
                       </span>
                       <input
                         type="number"
-                        name="stock_qty"
-                        placeholder="Stock Quantity"
-                        value={variant.inventory.stock_qty}
+                        name="quantity"
+                        placeholder="Inventory Quantity"
+                        value={variant.inventory.quantity}
                         onChange={(e) => handleVariantChange(idx, e)}
                         required
                         className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
@@ -832,123 +737,6 @@ const addVariant = () => {
                       className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
                     />
                   </label>
-                </div>
-
-                <div className="space-y-4 bg-gray-50 p-4 rounded-md">
-                  <div className="relative w-full cursor-pointer">
-                    <select
-                      name="use_meter_pricing"
-                      id="use_meter_pricing"
-                      className="cursor-pointer w-full pr-10 appearance-none bg-white border border-gray-300 rounded-[8px] px-4 py-2"
-                     onChange={(e) => setIsMeter(e.target.value === "true")}
-                    >
-                      <option value="Is meter ranging">Is Meter Ranging</option>
-                      <option value="true">True</option>
-                      <option value="false">False</option>
-                    </select>
-                    {/* Custom dropdown arrow */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {isMeter && selections.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-4 ">
-                      <div className="relative w-full cursor-pointer">
-                        {/* Dropdown */}
-                        <select
-                          className="cursor-pointer w-full pr-10 appearance-none bg-white border border-gray-300 rounded-[8px] px-4 py-2"
-                          value={item.meterRange}
-                          onChange={(e) =>
-                            handleChange(index, "meterRange", e.target.value)
-                          }
-                        >
-                          <option value="">Select Range</option>
-                          {meterOptions
-                            .filter(
-                              (opt) =>
-                                opt === item.meterRange ||
-                                !selectedRanges.includes(opt)
-                            )
-                            .map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                        </select>
-                        {/* Custom dropdown arrow */}
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-
-                      {/* Show inputs if dropdown selected */}
-                      {item.meterRange && (
-                        <>
-                          <input
-                            type="number"
-                            placeholder="Price"
-                            className="border border-gray-300 bg-white rounded px-2 py-1 w-32"
-                            value={item.price}
-                            onChange={(e) =>
-                              handleChange(index, "price", e.target.value)
-                            }
-                          />
-                          <input
-                            type="number"
-                            placeholder="Discount"
-                            className="border border-gray-300 bg-white rounded px-2 py-1 w-32"
-                            value={item.discount}
-                            onChange={(e) =>
-                              handleChange(index, "discount", e.target.value)
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemove(index)}
-                            className="flex justify-center items-center py-1 px-4 bg-red-500 text-white rounded-md"
-                          >
-                            X
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Add More Button */}
-                  {isMeter && getAvailableOptions().length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleAdd}
-                      className="mt-2 px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      + Add More
-                    </button>
-                  )}
                 </div>
 
                 <div className="w-full">
