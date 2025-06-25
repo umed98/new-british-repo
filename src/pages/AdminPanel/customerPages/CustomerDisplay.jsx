@@ -425,7 +425,7 @@ const CustomerDisplay = () => {
 
                       ["id", "ID"],
                       ["is_active", "IS Active"],
-                      // ["title", "Title"],
+                      ["Add Order", "Add Order"],
                       ["first_name", "Name"],
                       // ["middle_name", "Middle Name"],
                       // ["last_name", "Last Name"],
@@ -504,9 +504,9 @@ const CustomerDisplay = () => {
                         <td className="p-3 px-6  whitespace-nowrap">
                           {row.is_active}
                         </td>
-                        {/* <td className="p-3 px-6  whitespace-nowrap">
-                          {row.title}
-                        </td> */}
+                         <td className="p-3 px-6  whitespace-nowrap">
+                          <button className="bg-violet-900 text-white rounded-full py-1 px-4 cursor-pointer">Add Order</button>
+                        </td>
                         <td className="p-3 px-6 w-80 min-w-80 max-w-80 whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-3">
                           <Avatar name={row.first_name} />
                           <span className="w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">

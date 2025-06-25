@@ -11,7 +11,7 @@ const CustomerInfo = () => {
     axios
       .get(`https://britishquilting.fastranking.tech/api/customer/${id}`)
       .then((response) => {
-        setCustomer(response.data.data);
+        setCustomer(response.data.data.customer);
         setLoading(false);
       })
       .catch((error) => {

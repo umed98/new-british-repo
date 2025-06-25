@@ -75,6 +75,11 @@ const AddOrder = () => {
   const [specialPrices, setSpecialPrices] = useState([]);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
 
+  const productOptionsFormatted = productOptions.map((p) => ({
+  value: p.id,
+  label: p.product_name,
+}));
+
   console.log("Special Price", specialPrices);
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
@@ -906,7 +911,7 @@ const AddOrder = () => {
                     className="py-[6px] px-4 border-1 cursor-pointer appearance-none border-[#C5C5C5] rounded-[4px] placeholder:text-[#969696] w-full"
                   >
                     <option value="" disabled>
-                      Select Order Type
+                      Select Customer Type
                     </option>
                     <option value="b2b">Business</option>
                     <option value="b2c">Contact</option>
@@ -1717,7 +1722,21 @@ const AddOrder = () => {
                         >
                           Product Name List
                         </label>
-                        <div className="relative">
+
+                        <Select
+                          className="w-full"
+                          classNamePrefix="react-select"
+                          name="product_name"
+                          id={`product_name_${index}`}
+                          options={productOptionsFormatted}
+                          placeholder="Select Product Name"
+                          onChange={(selectedOption) => {
+                            handleProductChange(index, "product_name", selectedOption.label);
+                            handleProductChange(index, "product_id", selectedOption.value);
+                          }}
+                        />
+
+                        {/* <div className="relative">
                           <select
                             className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
                             name="product_name"
@@ -1748,7 +1767,7 @@ const AddOrder = () => {
                               </option>
                             ))}
                           </select>
-                          {/* Custom dropdown arrow */}
+                        
                           <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
                             <svg
                               className="w-4 h-4"
@@ -1764,7 +1783,7 @@ const AddOrder = () => {
                               />
                             </svg>
                           </div>
-                        </div>
+                        </div> */}
                       </div>
 
                       {/* Right: Variant List */}
