@@ -800,7 +800,7 @@ const addVariant = () => {
                         type="number"
                         name="stock_qty"
                         placeholder="Stock Quantity"
-                        value={variant.inventory.stock_qty}
+                        value={variant.stock_qty}
                         onChange={(e) => handleVariantChange(idx, e)}
                         required
                         className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"

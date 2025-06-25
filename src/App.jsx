@@ -27,6 +27,7 @@ import OrderDetailNew from "./pages/AdminPanel/orderPages/OrderDetailNew.jsx";
 import AddNewOrder from "./pages/AdminPanel/orderPages/AddNewOrder.jsx";
 import ProductAddNew from "./pages/AdminPanel/productPages/ProductAddNew.jsx";
 import Uploadpro from "./pages/AdminPanel/productPages/Uploadpro.jsx";
+import AddProductData from "./pages/add-product/AddProductData.jsx";
 
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
@@ -105,6 +106,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ProductForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-product-data"
+          element={
+            <ProtectedRoute>
+               <AddProductData/>
             </ProtectedRoute>
           }
         />
