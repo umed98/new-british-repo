@@ -425,7 +425,7 @@ const CustomerDisplay = () => {
 
                       ["id", "ID"],
                       ["is_active", "IS Active"],
-                      ["Add Order", "Add Order"],
+                      ["view", "View"],
                       ["first_name", "Name"],
                       // ["middle_name", "Middle Name"],
                       // ["last_name", "Last Name"],
@@ -505,7 +505,7 @@ const CustomerDisplay = () => {
                           {row.is_active}
                         </td>
                          <td className="p-3 px-6  whitespace-nowrap">
-                          <button className="bg-violet-900 text-white rounded-full py-1 px-4 cursor-pointer">Add Order</button>
+                          <button onClick={() => handleView(row.id)} className="bg-violet-900 text-white rounded-full py-1 px-4 cursor-pointer">View</button>
                         </td>
                         <td className="p-3 px-6 w-80 min-w-80 max-w-80 whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-3">
                           <Avatar name={row.first_name} />
@@ -627,7 +627,7 @@ const CustomerDisplay = () => {
                             {openDropdownId === row.id && (
                               <div className="absolute right-14 top-0 mt-2 w-40 rounded-md shadow-xl bg-white ring-1 ring-black/10 z-[40]">
                                 <div className="py-1">
-                                  <button
+                                  {/* <button
                                     className="cursor-pointer flex items-center gap-2 w-full px-4 py-2 text-sm text-black hover:bg-yellow-100"
                                     onClick={() => handleView(row.id)}
                                   >
@@ -644,7 +644,7 @@ const CustomerDisplay = () => {
                                       />
                                     </svg>
                                     View
-                                  </button>
+                                  </button> */}
                                   <button
                                     className="cursor-pointer flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-yellow-100"
                                     onClick={() => handleEdit(row.id)}
@@ -691,7 +691,7 @@ const CustomerDisplay = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan="8"
+                        colSpan="14"
                         className="text-center text-[18px] xl:text-[20px] font-[600] pt-[15%] py-6 text-gray-500"
                       >
                         No more items in table

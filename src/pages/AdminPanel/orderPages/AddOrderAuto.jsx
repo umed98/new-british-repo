@@ -1,10 +1,51 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
 
 const AddOrder = () => {
   const navigate = useNavigate();
+  const { state } = useLocation();
+
+  // If state is not present, redirect or show a message
+  if (!state) {
+    // Option 1: Redirect back
+    navigate(-1);
+    return null;
+    // Option 2: Show a message instead:
+    // return <div className="p-10 text-red-600 font-bold">This page requires pre-filled data. Please start from the Customer Info page.</div>;
+  }
+
+  // Instead, destructure with fallback to empty object
+  const { customer, singleBusiness, addresses, specialPrice } = state || {};
+
+  console.log(customer, "this is businesses");
+
+  useEffect(() => {
+    if (!state) return; // Only preselect if state is present
+
+    if (
+      singleBusiness &&
+      Array.isArray(singleBusiness) &&
+      singleBusiness.length > 0
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        order_type: "b2b",
+        business_id: singleBusiness[0].id,
+        customer_id: "",
+      }));
+      setBusiness(singleBusiness);
+    } else if (customer) {
+      setFormData((prev) => ({
+        ...prev,
+        order_type: "b2c",
+        business_id: "",
+        customer_id: customer.id,
+      }));
+      setCustomers([customer]);
+    }
+  }, [state, singleBusiness, customer]);
 
   const [formData, setFormData] = useState({
     order_type: "", // <-- added this
@@ -24,6 +65,7 @@ const AddOrder = () => {
     },
     items: [
       {
+        type: "meter",
         variant_id: "",
         meter_range_id: "",
         quantity: "",
@@ -73,9 +115,11 @@ const AddOrder = () => {
   const [selection, setSelection] = useState({});
   const [specialPrices, setSpecialPrices] = useState([]);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
-  const [selectedSpecialPriceId, setSelectedSpecialPriceId] = useState(null);
-  const [selectedBusinessSpecialPriceId, setSelectedBusinessSpecialPriceId] =
-    useState(null);
+
+  const productOptionsFormatted = productOptions.map((p) => ({
+    value: p.id,
+    label: p.product_name,
+  }));
 
   console.log("Special Price", specialPrices);
 
@@ -92,68 +136,6 @@ const AddOrder = () => {
   }, []);
 
   // ─── 5) HANDLER: WHEN USER CHOOSES A PRODUCT FOR A GIVEN ITEM INDEX ───────
-  // const handleProductChange = async (index, field, value) => {
-  //   // 1) Update formData.items[index][field] = value
-  //   const updatedItems = [...formData.items];
-  //   updatedItems[index][field] = value;
-
-  //   // 2) Find the full product object by name
-  //   const selectedProduct = productOptions.find(
-  //     (p) => p.product_name === value
-  //   );
-
-  //   // 3) Fetch variants for that product and initialize companion states
-  //   if (selectedProduct) {
-  //     try {
-  //       const res = await axios.get(
-  //         `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
-  //       );
-  //       if (res.data.success) {
-  //         const variants = res.data.product.variants || [];
-
-  //         // Store all variants under this item index
-  //         setProductVariants((prev) => ({
-  //           ...prev,
-  //           [index]: variants,
-  //         }));
-
-  //         // Automatically pick a default "color_id" & defaultVariant
-  //         const variantsWithColor = variants.filter((v) => v.color_id);
-  //         let defaultColorId = null;
-  //         let defaultVariant = null;
-
-  //         if (variantsWithColor.length > 0) {
-  //           defaultColorId = variantsWithColor[0].color_id;
-  //           defaultVariant = variantsWithColor.find(
-  //             (v) => v.color_id === defaultColorId
-  //           );
-  //         } else if (variants.length > 0) {
-  //           // Fallback if no color_id present
-  //           defaultColorId = null;
-  //           defaultVariant = variants[0];
-  //         }
-
-  //         setSelectedColor((prev) => ({
-  //           ...prev,
-  //           [index]: defaultColorId,
-  //         }));
-
-  //         setSelectedVariant((prev) => ({
-  //           ...prev,
-  //           [index]: defaultVariant,
-  //         }));
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to fetch variants:", err);
-  //     }
-  //   }
-
-  //   // 4) Finally write back the updated items array
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     items: updatedItems,
-  //   }));
-  // };
   const handleProductChange = async (index, field, value) => {
     const updatedItems = [...formData.items];
 
@@ -316,6 +298,7 @@ const AddOrder = () => {
       items: [
         ...prev.items,
         {
+          type: "meter",
           variant_id: "",
           quantity: "",
           meter_range_id: "",
@@ -703,6 +686,7 @@ const AddOrder = () => {
             },
             items: [
               {
+                type: "meter",
                 variant_id: "",
                 quantity: "",
                 meter_range_id: "",
@@ -731,7 +715,6 @@ const AddOrder = () => {
             ],
           });
 
-       
           setProductVariants({});
           setSelectedVariant({});
           setSelectedColor({});
@@ -748,7 +731,6 @@ const AddOrder = () => {
         console.error("Submission Error:", error);
         alert("An error occurred while submitting the order.");
       });
-         console.log(finalPayload);
   };
 
   const addAddress = (type) => {
@@ -772,119 +754,18 @@ const AddOrder = () => {
     updated.splice(index, 1);
     setFormData({ ...formData, [type]: updated });
   };
-  // const handleSubmit = (e) => {
-  //   e.preventDefault();
 
-  //   const transformedOrderItems = [];
-
-  //   formData.item.forEach((item, index) => {
-  //     const sizes = selectedSizes[index] || [];
-  //     const variant = selectedVariant[index] || {};
-  //     const quantityMap = quantities[index] || {};
-
-  //     sizes.forEach((sizeId) => {
-  //       const quantity = quantityMap[sizeId] || "0";
-  //       const price = variant.price || "0";
-
-  //       transformedOrderItems.push({
-  //         sku: variant.sku || "",
-  //         product_id: item.product_id,
-  //         variant_id: variant.id || "",
-  //         quantity,
-  //         size_id: sizeId,
-  //         price,
-  //       });
-  //     });
-  //   });
-
-  //   // Build base payload
-  //   const finalPayload = {
-  //     ...formData,
-  //     item: transformedOrderItems,
-  //   };
-
-  //   // Handle order_type logic
-  //   if (formData.order_type === "Customer") {
-  //     delete finalPayload.business_id;
-  //   }
-
-  //   // Handle billing address
-  //   if (billingAddress) {
-  //     finalPayload.billing_id = billingAddress;
-  //     delete finalPayload.billing_addresses;
-  //   } else {
-  //     delete finalPayload.billing_id;
-  //   }
-
-  //   // Handle shipping address
-  //   if (shippingAddress) {
-  //     finalPayload.shipping_id = shippingAddress;
-  //     delete finalPayload.shipping_addresses;
-  //   } else {
-  //     delete finalPayload.shipping_id;
-  //   }
-
-  //   // Submit to API
-  //   axios
-  //     .post(
-  //       "https://britishquilting.fastranking.tech/api/save-new-order",
-  //       finalPayload
-  //     )
-  //     .then((res) => {
-  //       console.log("API Response:", res);
-  //       if (res.status === 200 || res.status === 201) {
-  //         alert("Order submitted successfully!");
-  //         // Reset form and state
-  //         setFormData({
-  //           order_type: "",
-  //           business_id: "",
-  //           customer_id: "",
-  //           payment_method: "",
-  //           item: [
-  //             {
-  //               sku: "",
-  //               product_id: "",
-  //               variant_id: "",
-  //               quantity: "",
-  //               size_id: "",
-  //               price: "",
-  //             },
-  //           ],
-  //           billing_addresses: [
-  //             {
-  //               address_line_1: "",
-  //               address_line_2: "",
-  //               city: "",
-  //               postal_code: "",
-  //               country: "",
-  //             },
-  //           ],
-  //           shipping_addresses: [
-  //             {
-  //               address_line_1: "",
-  //               address_line_2: "",
-  //               city: "",
-  //               postal_code: "",
-  //               country: "",
-  //             },
-  //           ],
-  //         });
-  //         setSelectedVariant({});
-  //         setSelectedSizes({});
-  //         setQuantities({});
-  //         setSelectedColor({});
-  //         setBillingAddress(null);
-  //         setShippingAddress(null);
-  //         navigate("/order-display");
-  //       } else {
-  //         alert("Something went wrong. Please check your input.");
-  //       }
-  //     })
-  //     .catch((error) => {
-  //       console.error("Submission Error:", error);
-  //       alert("An error occurred while submitting the order.");
-  //     });
-  // };
+  // Fetch business and customer lists on mount for direct access
+  useEffect(() => {
+    axios.get("https://britishquilting.fastranking.tech/api/businesses")
+      .then(res => {
+        if (res.data.status) setBusiness(res.data.data);
+      });
+    axios.get("https://britishquilting.fastranking.tech/api/customers")
+      .then(res => {
+        if (res.data.status) setCustomers(res.data.data);
+      });
+  }, []);
 
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -894,8 +775,8 @@ const AddOrder = () => {
         </h1>
         <div className="bg-white rounded-[8px] border-1 border-[#D6D6D6] w-full pb-6 p-8 h-auto mt-5">
           <form onSubmit={handleSubmit} action="">
-            <div className="flex flex-wrap gap-5 w-full items-center">
-              <div className="flex flex-col gap-1 min-w-[160px]">
+            <div className="flex gap-5 w-full items-center">
+              <div className="flex flex-col gap-1 w-[220px]">
                 <label htmlFor="order_type" className="text-sm font-[600]">
                   Select Type
                 </label>
@@ -905,10 +786,10 @@ const AddOrder = () => {
                     id="order_type"
                     value={formData.order_type || ""}
                     onChange={(e) => handleTypeChange(e)}
-                    className="py-[8.5px] text-sm px-4 border-1 cursor-pointer appearance-none border-[#C5C5C5] rounded-[4px] placeholder:text-[#969696] w-full"
+                    className="py-[6px] px-4 border-1 cursor-pointer appearance-none border-[#C5C5C5] rounded-[4px] placeholder:text-[#969696] w-full"
                   >
                     <option value="" disabled>
-                      Select Order Type
+                      Select Customer Type
                     </option>
                     <option value="b2b">Business</option>
                     <option value="b2c">Contact</option>
@@ -931,13 +812,13 @@ const AddOrder = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 ">
+              <div className="flex flex-col gap-1 w-[300px]">
                 <label htmlFor="name_selector" className="text-sm font-[600]">
                   Business or Contact Name
                 </label>
 
                 <Select
-                  className=" text-sm cursor-pointer outline-none appearance-none"
+                  className="w-[300px] cursor-pointer outline-none appearance-none"
                   options={options}
                   value={selectedOption}
                   onChange={(selected) => {
@@ -969,60 +850,42 @@ const AddOrder = () => {
                       },
                     }))
                   }
-                  className="py-[8.5px] px-4 text-sm cursor-pointer rounded-[4px] border-1 border-gray-300"
+                  className="py-[6px] px-4  cursor-pointer rounded-[6px] border-1 border-gray-300"
                 />
               </div>
-              {/* <div className="flex flex-col gap-1 w-[300px]">
-                <label htmlFor="name_selector" className="text-sm font-[600]">
-                  Business or Contact Name
-                </label>
-                <div className="relative">
-                  <select
-                    id="name_selector"
-                    name={
-                      formData.order_type === "Business"
-                        ? "business_id"
-                        : "customer_id"
-                    }
-                    value={
-                      formData.order_type === "Business"
-                        ? formData.business_id
-                        : formData.customer_id
-                    }
-                    onChange={handleChange}
-                    className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+            </div>
+
+            <div className="p-10">
+              <h1 className="text-lg font-bold mb-3">Business Details</h1>
+              <pre className="bg-gray-100 p-3 rounded mb-2 text-sm">
+                {singleBusiness ? JSON.stringify(singleBusiness, null, 2) : "No business selected"}
+              </pre>
+
+              <h1 className="text-lg font-bold mb-1">Customer Details</h1>
+              <pre className="text-lg mb-6">
+                {customer
+                  ? `${customer.first_name} ${customer.middle_name} ${customer.last_name}`
+                  : "No customer selected"}
+              </pre>
+
+              <h2 className="text-xl font-semibold mb-2">Chosen Address(es)</h2>
+              {Array.isArray(addresses) && addresses.length > 0 ? (
+                addresses.map((addr) => (
+                  <pre
+                    key={addr.id}
+                    className="bg-gray-100 p-3 rounded mb-2 text-sm"
                   >
-                    <option value="" disabled>
-                      Select Name
-                    </option>
-                    {(formData.order_type === "Business"
-                      ? business
-                      : customers
-                    ).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {formData.order_type === "Business"
-                          ? item.business_name
-                          : `${item.first_name} ${item.last_name}`}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div> */}
+                    {JSON.stringify(addr, null, 2)}
+                  </pre>
+                ))
+              ) : (
+                <div>No addresses selected</div>
+              )}
+
+              <h2 className="text-xl font-semibold mb-2">Special Price</h2>
+              <pre className="bg-gray-100 p-3 rounded text-sm">
+                {specialPrice ? JSON.stringify(specialPrice, null, 2) : "No special price selected"}
+              </pre>
             </div>
 
             <div className="border border-gray-300 rounded-[6px] p-5 bg-[#f8fff3] w-full mt-6 min-h-50">
@@ -1082,112 +945,22 @@ const AddOrder = () => {
                               {specialPrices.map((item) => (
                                 <div
                                   key={item.id}
-                                  className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
+                                  className="border border-gray-300 rounded p-3 shadow-sm bg-white"
                                 >
-                                  <input
-                                    type="radio"
-                                    name="selectedSpecialPrice"
-                                    value={item.id}
-                                    checked={selectedSpecialPriceId === item.id}
-                                    onChange={() =>
-                                      setSelectedSpecialPriceId(item.id)
-                                    }
-                                    className="mr-3"
-                                  />
-                                  <div className="flex-1">
-                                    <p>
-                                      <strong>Variant ID:</strong>{" "}
-                                      {item.variant_id}
-                                    </p>
-                                    <p>
-                                      <strong>Variant Name:</strong>{" "}
-                                      {item.variant_name}
-                                    </p>
-                                    <p>
-                                      <strong>Business Name:</strong>{" "}
-                                      {item.business_name}
-                                    </p>
-                                    <p>
-                                      <strong>Special Price:</strong> £
-                                      {item.special_price}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      <strong>Updated:</strong>{" "}
-                                      {item.updated_at}
-                                    </p>
-                                    {selectedSpecialPriceId === item.id && (
-                                      <div className="mt-4 p-4 border rounded bg-gray-50">
-                                        <div className="flex items-end flex-wrap gap-6">
-                                          {/* Meter Range */}
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Meter Range
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={item.meter_range || ""}
-                                              readOnly
-                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
-                                            />
-                                          </div>
-                                          {/* Price */}
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Price
-                                            </label>
-                                            <input
-                                              type="number"
-                                              value={item.price || ""}
-                                              readOnly
-                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                            />
-                                          </div>
-                                          {/* Discount */}
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Discount
-                                            </label>
-                                            <input
-                                              type="number"
-                                              value={item.discount || ""}
-                                              readOnly
-                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                            />
-                                          </div>
-                                          {/* Quantity */}
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Quantity
-                                            </label>
-                                            <input
-                                              type="number"
-                                              value={item.quantity || ""}
-                                              readOnly
-                                              className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
-                                            />
-                                          </div>
-                                          {/* Total Price */}
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Total Price
-                                            </label>
-                                            <input
-                                              type="number"
-                                              value={item.total_price || ""}
-                                              readOnly
-                                              className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                            />
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <p>
+                                    <strong>Variant ID:</strong>{" "}
+                                    {item.variant_id}
+                                  </p>
+                                  <p>
+                                    <strong>Special Price:</strong> £
+                                    {item.special_price}
+                                  </p>
                                 </div>
                               ))}
                             </div>
                           ) : (
                             <p className="text-sm text-gray-500">
-                              No special prices found for this customer.
+                              No special prices found for this contact.
                             </p>
                           )}
                         </div>
@@ -1380,95 +1153,15 @@ const AddOrder = () => {
                         {specialBusinessPrices.map((item) => (
                           <div
                             key={item.id}
-                            className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
+                            className="border border-gray-300 rounded p-3 shadow-sm bg-white"
                           >
-                            <input
-                              type="radio"
-                              name="selectedBusinessSpecialPrice"
-                              value={item.id}
-                              checked={
-                                selectedBusinessSpecialPriceId === item.id
-                              }
-                              onChange={() =>
-                                setSelectedBusinessSpecialPriceId(item.id)
-                              }
-                              className="mr-3"
-                            />
-                            <div className="flex-1">
-                              <p>
-                                <strong>Variant ID:</strong> {item.variant_id}
-                              </p>
-                              <p>
-                                <strong>Special Price:</strong> £
-                                {item.special_price}
-                              </p>
-                              {selectedBusinessSpecialPriceId === item.id && (
-                                <div className="mt-4 p-4 border rounded bg-gray-50">
-                                  <div className="flex items-end flex-wrap gap-6">
-                                    {/* Meter Range */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Meter Range
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={item.meter_range || ""}
-                                        readOnly
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
-                                      />
-                                    </div>
-                                    {/* Price */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Price
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={item.price || ""}
-                                        readOnly
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      />
-                                    </div>
-                                    {/* Discount */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Discount
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={item.discount || ""}
-                                        readOnly
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      />
-                                    </div>
-                                    {/* Quantity */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Quantity
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={item.quantity || ""}
-                                        readOnly
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
-                                      />
-                                    </div>
-                                    {/* Total Price */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Total Price
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={item.total_price || ""}
-                                        readOnly
-                                        className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+                            <p>
+                              <strong>Variant ID:</strong> {item.variant_id}
+                            </p>
+                            <p>
+                              <strong>Special Price:</strong> £
+                              {item.special_price}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -1684,23 +1377,9 @@ const AddOrder = () => {
                           className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                         />
                       </div>
-                      {/* <button
-              type="button"
-              onClick={() => removeAddress("billing_addresses", index)}
-              className="text-red-600 border-1 border-red-600 py-1 px-4 rounded-[6px] mt-4 cursor-pointer w-30"
-            >
-              Remove
-            </button> */}
                     </div>
                   </div>
                 ))}
-                {/* <button
-                type="button"
-                onClick={() => addAddress("billing_addresses")}
-                className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
-              >
-                Add Address
-              </button> */}
                 <div className="mt-3 pb-8 ">
                   <h2 className="mt-5 text-[18px] font-[500]">
                     Shipping Address
@@ -1828,13 +1507,6 @@ const AddOrder = () => {
                       </div>
                     </>
                   ))}
-                  {/* <button
-                  type="button"
-                  onClick={() => addAddress("shipping_addresses")}
-                  className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
-                >
-                  Add Address
-                </button> */}
                 </div>
               </div>
             )}
@@ -1843,20 +1515,6 @@ const AddOrder = () => {
             <div className="border-t-1 border-gray-300 py-10 ">
               <h1 className="text-[20px] font-[500]">Product Details</h1>
               <div className="flex flex-col gap-5">
-                {/* <div className="mt-5 flex flex-col gap-1 w-1/3">
-                  <label htmlFor="Product Code" className="text-sm font-[600]">
-                    Product Name
-                  </label>
-                  <input
-                    type="text"
-                    name="product_code"
-                    placeholder="Enter Product Name"
-                    value={formData.product_code}
-                    onChange={handleChange}
-                    className="border-1 border-gray-300 rounded-[6px] py-2 px-4"
-                  />
-                </div> */}
-
                 {formData.items.map((product, index) => (
                   <div key={index} className="flex flex-col gap-6 w-full mt-6">
                     {formData.items.length > 1 && index !== 0 && (
@@ -1878,354 +1536,269 @@ const AddOrder = () => {
                         >
                           Product Name List
                         </label>
-                        <div className="relative">
-                          <select
-                            className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
-                            name="product_name"
-                            id={`product_name_${index}`}
-                            value={product.product_name}
-                            onChange={(e) => {
-                              const selected = productOptions.find(
-                                (p) => p.product_name === e.target.value
-                              );
-                              handleProductChange(
-                                index,
-                                "product_name",
-                                selected.product_name
-                              );
-                              handleProductChange(
-                                index,
-                                "product_id",
-                                selected.id
-                              ); // capture ID too
-                            }}
-                          >
-                            <option value="" selected disabled>
-                              Select Product Name
-                            </option>
-                            {productOptions.map((p) => (
-                              <option key={p.id} value={p.product_name}>
-                                {p.product_name}
-                              </option>
-                            ))}
-                          </select>
-                          {/* Custom dropdown arrow */}
-                          <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </div>
-                        </div>
+
+                        <Select
+                          className="w-full"
+                          classNamePrefix="react-select"
+                          name="product_name"
+                          id={`product_name_${index}`}
+                          options={productOptionsFormatted}
+                          placeholder="Select Product Name"
+                          onChange={(selectedOption) => {
+                            handleProductChange(
+                              index,
+                              "product_name",
+                              selectedOption.label
+                            );
+                            handleProductChange(
+                              index,
+                              "product_id",
+                              selectedOption.value
+                            );
+                          }}
+                        />
                       </div>
 
                       {/* Right: Variant List */}
-                      {/* {productVariants[index]?.length > 0 && (
-                        <div className="w-2/3">
-                          <p className="text-sm font-semibold mb-2">
-                            Variants:
-                          </p>
-                          <div className="flex gap-3 flex-wrap">
-                            {productVariants[index].map((variant) => (
-                              <button
-                                type="button"
-                                key={variant.id}
-                                onClick={() =>
-                                  handleVariantSelect(index, variant)
-                                }
-                                className={`border px-3 py-1 rounded text-sm ${
-                                  selectedVariant[index]?.id === variant.id
-                                    ? "bg-purple-900 text-white"
-                                    : "bg-gray-100 hover:bg-blue-100"
-                                }`}
-                              >
-                                Variant: {variant.color_id}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )} */}
-                      {/* Color Selection if multiple colors available */}
-                      {/* {productVariants[index] &&
-                        productVariants[index].some((v) => v.color_id) && (
-                          <div className="mt-4">
-                            <p className="text-sm font-semibold">
-                              Choose Color:
-                            </p>
-                            <div className="flex gap-2 flex-wrap mt-2">
-                              {[
-                                ...new Set(
-                                  productVariants[index]
-                                    .filter((v) => v.color_id)
-                                    .map((v) => v.color_id)
-                                ),
-                              ].map((colorId) => {
-                                const colorName =
-                                  productVariants[index].find(
-                                    (v) => v.color_id === colorId
-                                  )?.color_name || `Color ${colorId}`;
-                                return (
-                                  <button
-                                    key={colorId}
-                                    type="button"
-                                    onClick={() =>
-                                      handleColorSelect(index, colorId)
-                                    }
-                                    className={`border px-3 py-1 rounded text-sm ${
-                                      selectedColor[index] === colorId
-                                        ? "bg-green-500 text-white"
-                                        : "bg-gray-100 hover:bg-green-100"
-                                    }`}
-                                  >
-                                    {colorName}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )} */}
-                    </div>
-                    {selectedVariant[index] && (
-                      <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
-                        <p className="font-semibold mb-1">Variant Details:</p>
+                      {selectedVariant[index] && (
+                        <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
+                          <p className="font-semibold mb-1">Variant Details:</p>
 
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-4">
-                            <p className="flex flex-col gap-1">
-                              <strong className="text-sm">Color:</strong>{" "}
-                              <input
-                                type="text"
-                                value={selectedVariant[index].color_name || ""}
-                                className=" py-1 px-4 border border-gray-400 rounded bg-white"
-                                readOnly
-                              />
-                            </p>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex gap-4">
+                              <p className="flex flex-col gap-1">
+                                <strong className="text-sm">Color:</strong>{" "}
+                                <input
+                                  type="text"
+                                  value={
+                                    selectedVariant[index].color_name || ""
+                                  }
+                                  className=" py-1 px-4 border border-gray-400 rounded bg-white"
+                                  readOnly
+                                />
+                              </p>
 
-                            {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
-                            <div className="">
-                              <div className="flex items-end flex-wrap gap-6">
-                                {/* Meter Range Section */}
-                                <div className="flex flex-col gap-1">
-                                  {/* Selected Range Label */}
-                                  {selection[index]?.meterRangeId != null &&
-                                    (() => {
+                              {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
+                              <div className="">
+                                <div className="flex items-end flex-wrap gap-6">
+                                  {/* Meter Range Section */}
+                                  <div className="flex flex-col gap-1">
+                                    {/* Selected Range Label */}
+                                    {selection[index]?.meterRangeId &&
+                                      (() => {
+                                        const selectedRange = meterOptions[
+                                          index
+                                        ]?.find(
+                                          (o) =>
+                                            o.id ===
+                                            selection[index].meterRangeId
+                                        );
+                                        return (
+                                          selectedRange && (
+                                            <span className="text-sm text-gray-600 min-w-[200px]">
+                                              Range:{" "}
+                                              <strong>
+                                                {selectedRange.range_label}
+                                              </strong>{" "}
+                                              ({selectedRange.min_meter}m -{" "}
+                                              {selectedRange.max_meter}m)
+                                            </span>
+                                          )
+                                        );
+                                      })()}
+
+                                    {/* Dropdown */}
+                                    <select
+                                      className="bg-white rounded px-2 py-1 w-52 border"
+                                      value={
+                                        selection[index]?.meterRangeId || ""
+                                      }
+                                      onChange={(e) =>
+                                        handleSelectionChange(
+                                          index,
+                                          "meterRangeId",
+                                          parseInt(e.target.value)
+                                        )
+                                      }
+                                    >
+                                      <option value="">Select Range</option>
+                                      {meterOptions[index]?.map((opt) => (
+                                        <option key={opt.id} value={opt.id}>
+                                          {opt.range_label} ({opt.min_meter}m -{" "}
+                                          {opt.max_meter}m)
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Price */}
+                                  <div className="flex flex-col gap-1">
+                                    <label
+                                      className="text-black font-[500] text-sm"
+                                      htmlFor="Price"
+                                    >
+                                      Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      id={`price-${index}`}
+                                      placeholder="price"
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      value={selection[index]?.price || ""}
+                                      onChange={(e) =>
+                                        handleSelectionChange(
+                                          index,
+                                          "price",
+                                          e.target.value
+                                        )
+                                      }
+                                      readOnly
+                                    />
+                                  </div>
+
+                                  {/* Discount */}
+                                  <div className="flex flex-col gap-1">
+                                    <label
+                                      className="text-black font-[500] text-sm"
+                                      htmlFor="Discount"
+                                    >
+                                      Discount
+                                    </label>
+                                    <input
+                                      type="number"
+                                      id={`discount-${index}`}
+                                      placeholder="discount"
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      value={selection[index]?.discount || ""}
+                                      onChange={(e) =>
+                                        handleSelectionChange(
+                                          index,
+                                          "discount",
+                                          e.target.value
+                                        )
+                                      }
+                                      readOnly
+                                    />
+                                  </div>
+
+                                  {/* Quantity Input - Bound to selected range */}
+                                  <div className="flex flex-col gap-1">
+                                    <label
+                                      className="text-black font-[500] text-sm"
+                                      htmlFor="Final Price"
+                                    >
+                                      Quantity
+                                    </label>
+                                    {(() => {
                                       const selectedRange = meterOptions[
                                         index
                                       ]?.find(
                                         (o) =>
-                                          o.id === selection[index].meterRangeId
+                                          o.id ===
+                                          selection[index]?.meterRangeId
                                       );
+
+                                      const minQty = selectedRange
+                                        ? Math.ceil(
+                                            parseFloat(selectedRange.min_meter)
+                                          )
+                                        : 0;
+                                      const maxQty = selectedRange
+                                        ? Math.floor(
+                                            parseFloat(selectedRange.max_meter)
+                                          )
+                                        : Infinity;
+
                                       return (
-                                        selectedRange && (
-                                          <span className="text-sm text-gray-600 min-w-[200px]">
-                                            Range:{" "}
-                                            <strong>
-                                              {selectedRange.range_label}
-                                            </strong>{" "}
-                                            ({selectedRange.min_meter}m -{" "}
-                                            {selectedRange.max_meter}m)
-                                          </span>
-                                        )
-                                      );
-                                    })()}
+                                        <input
+                                          type="number"
+                                          className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                          placeholder={`quantity`}
+                                          min={minQty}
+                                          max={maxQty}
+                                          value={formData.items[index].quantity}
+                                          onChange={(e) => {
+                                            const input = e.target.value;
 
-                                  {/* Dropdown */}
-                                  <select
-                                    className="bg-white rounded px-2 py-1 w-52 border"
-                                    value={selection[index]?.meterRangeId ?? ""}
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "meterRangeId",
-                                        parseInt(e.target.value)
-                                      )
-                                    }
-                                  >
-                                    <option value="">Select Range</option>
-                                    {meterOptions[index]?.map((opt) => (
-                                      <option key={opt.id} value={opt.id}>
-                                        {opt.range_label} ({opt.min_meter}m -{" "}
-                                        {opt.max_meter}m)
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
+                                            // Allow empty input for smoother typing
+                                            if (
+                                              input === "" ||
+                                              /^\d+$/.test(input)
+                                            ) {
+                                              const updatedItems = [
+                                                ...formData.items,
+                                              ];
+                                              updatedItems[index].quantity =
+                                                input;
+                                              setFormData((prev) => ({
+                                                ...prev,
+                                                items: updatedItems,
+                                              }));
+                                            }
+                                          }}
+                                          onBlur={(e) => {
+                                            let quantity =
+                                              parseInt(e.target.value) || 0;
 
-                                {/* Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Price"
-                                  >
-                                    Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`price-${index}`}
-                                    placeholder="price"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                    value={selection[index]?.price || ""}
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "price",
-                                        e.target.value
-                                      )
-                                    }
-                                    readOnly
-                                  />
-                                </div>
+                                            // Clamp on blur
+                                            if (quantity < minQty)
+                                              quantity = minQty;
+                                            if (quantity > maxQty)
+                                              quantity = maxQty;
 
-                                {/* Discount */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Discount"
-                                  >
-                                    Discount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`discount-${index}`}
-                                    placeholder="discount"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                    value={selection[index]?.discount || ""}
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "discount",
-                                        e.target.value
-                                      )
-                                    }
-                                    readOnly
-                                  />
-                                </div>
+                                            const finalPrice =
+                                              parseFloat(
+                                                selection[index]?.finalPrice
+                                              ) || 0;
+                                            const totalPrice =
+                                              quantity * finalPrice;
 
-                                {/* Quantity Input - Bound to selected range */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Final Price"
-                                  >
-                                    Quantity
-                                  </label>
-                                  {(() => {
-                                    const selectedRange = meterOptions[
-                                      index
-                                    ]?.find(
-                                      (o) =>
-                                        o.id === selection[index]?.meterRangeId
-                                    );
-
-                                    const minQty = selectedRange
-                                      ? Math.ceil(
-                                          parseFloat(selectedRange.min_meter)
-                                        )
-                                      : 0;
-                                    const maxQty = selectedRange
-                                      ? Math.floor(
-                                          parseFloat(selectedRange.max_meter)
-                                        )
-                                      : Infinity;
-
-                                    return (
-                                      <input
-                                        type="number"
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
-                                        placeholder={`quantity`}
-                                        min={minQty}
-                                        max={maxQty}
-                                        value={formData.items[index].quantity}
-                                        onChange={(e) => {
-                                          const input = e.target.value;
-
-                                          // Allow empty input for smoother typing
-                                          if (
-                                            input === "" ||
-                                            /^\d+$/.test(input)
-                                          ) {
                                             const updatedItems = [
                                               ...formData.items,
                                             ];
                                             updatedItems[index].quantity =
-                                              input;
+                                              quantity;
+                                            updatedItems[index].total_price =
+                                              totalPrice;
+
                                             setFormData((prev) => ({
                                               ...prev,
                                               items: updatedItems,
                                             }));
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          let quantity =
-                                            parseInt(e.target.value) || 0;
+                                          }}
+                                        />
+                                      );
+                                    })()}
+                                  </div>
 
-                                          // Clamp on blur
-                                          if (quantity < minQty)
-                                            quantity = minQty;
-                                          if (quantity > maxQty)
-                                            quantity = maxQty;
-
-                                          const finalPrice =
-                                            parseFloat(
-                                              selection[index]?.finalPrice
-                                            ) || 0;
-                                          const totalPrice =
-                                            quantity * finalPrice;
-
-                                          const updatedItems = [
-                                            ...formData.items,
-                                          ];
-                                          updatedItems[index].quantity =
-                                            quantity;
-                                          updatedItems[index].total_price =
-                                            totalPrice;
-
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            items: updatedItems,
-                                          }));
-                                        }}
-                                      />
-                                    );
-                                  })()}
-                                </div>
-
-                                {/* Total Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Total Price"
-                                  >
-                                    Total Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="total price"
-                                    readOnly
-                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                    value={
-                                      formData.items[index].total_price !==
-                                      undefined
-                                        ? formData.items[index].total_price
-                                        : ""
-                                    }
-                                  />
+                                  {/* Total Price */}
+                                  <div className="flex flex-col gap-1">
+                                    <label
+                                      className="text-black font-[500] text-sm"
+                                      htmlFor="Total Price"
+                                    >
+                                      Total Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      placeholder="total price"
+                                      readOnly
+                                      className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                      value={
+                                        formData.items[index].total_price !==
+                                        undefined
+                                          ? formData.items[index].total_price
+                                          : ""
+                                      }
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
 

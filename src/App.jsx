@@ -28,6 +28,8 @@ import AddNewOrder from "./pages/AdminPanel/orderPages/AddNewOrder.jsx";
 import ProductAddNew from "./pages/AdminPanel/productPages/ProductAddNew.jsx";
 import Uploadpro from "./pages/AdminPanel/productPages/Uploadpro.jsx";
 import AddProductData from "./pages/add-product/AddProductData.jsx";
+import AddOrderAuto from "./pages/AdminPanel/orderPages/AddOrderAuto.jsx";
+
 
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
@@ -172,6 +174,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AddOrder />
+            </ProtectedRoute>
+          }
+        />
+            <Route
+          path="/add-order-auto"
+          element={
+            <ProtectedRoute>
+              <AddOrderAuto />
             </ProtectedRoute>
           }
         />
