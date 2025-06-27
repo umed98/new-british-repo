@@ -116,6 +116,12 @@ const AddOrder = () => {
   const [specialPrices, setSpecialPrices] = useState([]);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
 
+  // Add state for multi-select and editing
+  const [selectedSpecialPriceIds, setSelectedSpecialPriceIds] = useState([]);
+  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] = useState([]);
+  const [editedSpecialPrice, setEditedSpecialPrice] = useState({});
+  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState({});
+
   const productOptionsFormatted = productOptions.map((p) => ({
     value: p.id,
     label: p.product_name,
@@ -628,6 +634,50 @@ const AddOrder = () => {
       };
     });
 
+    // Add selected special prices (customer)
+    if (selectedSpecialPriceIds.length > 0) {
+      selectedSpecialPriceIds.forEach((id) => {
+        const item = specialPrices.find((sp) => sp.id === id);
+        const edited = editedSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+          const total_price = (quantity * (special_price - discount));
+          transformedOrderItems.push({
+            variant_id: item.id,
+            meter_range_id: item.meter_range_id || null,
+            quantity,
+            price_per_unit: special_price,
+            discount_applied: discount,
+            total_price,
+          });
+        }
+      });
+    }
+
+    // Add selected business special prices
+    if (selectedBusinessSpecialPriceIds.length > 0) {
+      selectedBusinessSpecialPriceIds.forEach((id) => {
+        const item = specialBusinessPrices.find((sp) => sp.id === id);
+        const edited = editedBusinessSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+          const total_price = (quantity * (special_price - discount));
+          transformedOrderItems.push({
+            variant_id: item.id,
+            meter_range_id: item.meter_range_id || null,
+            quantity,
+            price_per_unit: special_price,
+            discount_applied: discount,
+            total_price,
+          });
+        }
+      });
+    }
+
     // ─── Compute Grand Total ─────────────────────────────────
     const total_amount = transformedOrderItems.reduce(
       (sum, itm) => sum + itm.total_price,
@@ -767,6 +817,50 @@ const AddOrder = () => {
       });
   }, []);
 
+  // Handlers for checkboxes and edits
+  const handleSpecialPriceCheckbox = (id) => {
+    setSelectedSpecialPriceIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
+  const handleBusinessSpecialPriceCheckbox = (id) => {
+    setSelectedBusinessSpecialPriceIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
+  const handleSpecialPriceChange = (field, value, item) => {
+    setEditedSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const total_price = (quantity * (special_price - discount)).toFixed(2);
+      return {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+    });
+  };
+  const handleBusinessSpecialPriceChange = (field, value, item) => {
+    setEditedBusinessSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const total_price = (quantity * (special_price - discount)).toFixed(2);
+      return {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+    });
+  };
+
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
       <div className="w-full min-h-[91vh] h-auto px-5  pr-5 lg:pr-10 py-6 bg-[#F7F7F7]">
@@ -855,7 +949,7 @@ const AddOrder = () => {
               </div>
             </div>
 
-            <div className="p-10">
+            {/* <div className="p-10">
               <h1 className="text-lg font-bold mb-3">Business Details</h1>
               <pre className="bg-gray-100 p-3 rounded mb-2 text-sm">
                 {singleBusiness ? JSON.stringify(singleBusiness, null, 2) : "No business selected"}
@@ -886,7 +980,7 @@ const AddOrder = () => {
               <pre className="bg-gray-100 p-3 rounded text-sm">
                 {specialPrice ? JSON.stringify(specialPrice, null, 2) : "No special price selected"}
               </pre>
-            </div>
+            </div> */}
 
             <div className="border border-gray-300 rounded-[6px] p-5 bg-[#f8fff3] w-full mt-6 min-h-50">
               {selectedCustomer ? (
@@ -945,23 +1039,75 @@ const AddOrder = () => {
                               {specialPrices.map((item) => (
                                 <div
                                   key={item.id}
-                                  className="border border-gray-300 rounded p-3 shadow-sm bg-white"
+                                  className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
                                 >
-                                  <p>
-                                    <strong>Variant ID:</strong>{" "}
-                                    {item.variant_id}
-                                  </p>
-                                  <p>
-                                    <strong>Special Price:</strong> £
-                                    {item.special_price}
-                                  </p>
+                                  <input
+                                    type="checkbox"
+                                    name="selectedSpecialPrice"
+                                    value={item.id}
+                                    checked={selectedSpecialPriceIds.includes(item.id)}
+                                    onChange={() => handleSpecialPriceCheckbox(item.id)}
+                                    className="mr-3"
+                                  />
+                                  <div className="flex-1">
+                                    <p>
+                                      <strong>Variant ID:</strong> {item.variant_id}
+                                    </p>
+                                    <p>
+                                      <strong>Special Price:</strong> £{item.special_price}
+                                    </p>
+                                    {selectedSpecialPriceIds.includes(item.id) && (
+                                      <div className="mt-4 p-4 border rounded bg-gray-50">
+                                        <div className="flex items-end flex-wrap gap-6">
+                                          {/* Price */}
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-black font-[500] text-sm">Price</label>
+                                            <input
+                                              type="number"
+                                              value={editedSpecialPrice[item.id]?.special_price ?? item.special_price ?? ""}
+                                              onChange={(e) => handleSpecialPriceChange("special_price", e.target.value, item)}
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+                                          {/* Discount */}
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-black font-[500] text-sm">Discount</label>
+                                            <input
+                                              type="number"
+                                              value={editedSpecialPrice[item.id]?.variant_discount ?? item.variant_discount ?? ""}
+                                              onChange={(e) => handleSpecialPriceChange("variant_discount", e.target.value, item)}
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+                                          {/* Quantity */}
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-black font-[500] text-sm">Quantity</label>
+                                            <input
+                                              type="number"
+                                              value={editedSpecialPrice[item.id]?.quantity ?? item.quantity ?? ""}
+                                              onChange={(e) => handleSpecialPriceChange("quantity", e.target.value, item)}
+                                              className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                            />
+                                          </div>
+                                          {/* Total Price */}
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-black font-[500] text-sm">Total Price</label>
+                                            <input
+                                              type="number"
+                                              value={editedSpecialPrice[item.id]?.total_price ?? item.total_price ?? ""}
+                                              readOnly
+                                              className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500">
-                              No special prices found for this contact.
-                            </p>
+                            <p className="text-sm text-gray-500">No special prices found for this contact.</p>
                           )}
                         </div>
 
@@ -1153,22 +1299,75 @@ const AddOrder = () => {
                         {specialBusinessPrices.map((item) => (
                           <div
                             key={item.id}
-                            className="border border-gray-300 rounded p-3 shadow-sm bg-white"
+                            className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
                           >
-                            <p>
-                              <strong>Variant ID:</strong> {item.variant_id}
-                            </p>
-                            <p>
-                              <strong>Special Price:</strong> £
-                              {item.special_price}
-                            </p>
+                            <input
+                              type="checkbox"
+                              name="selectedBusinessSpecialPrice"
+                              value={item.id}
+                              checked={selectedBusinessSpecialPriceIds.includes(item.id)}
+                              onChange={() => handleBusinessSpecialPriceCheckbox(item.id)}
+                              className="mr-3"
+                            />
+                            <div className="flex-1">
+                              <p>
+                                <strong>Variant ID:</strong> {item.variant_id}
+                              </p>
+                              <p>
+                                <strong>Special Price:</strong> £{item.special_price}
+                              </p>
+                              {selectedBusinessSpecialPriceIds.includes(item.id) && (
+                                <div className="mt-4 p-4 border rounded bg-gray-50">
+                                  <div className="flex items-end flex-wrap gap-6">
+                                    {/* Price */}
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-black font-[500] text-sm">Price</label>
+                                      <input
+                                        type="number"
+                                        value={editedBusinessSpecialPrice[item.id]?.special_price ?? item.special_price ?? ""}
+                                        onChange={(e) => handleBusinessSpecialPriceChange("special_price", e.target.value, item)}
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      />
+                                    </div>
+                                    {/* Discount */}
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-black font-[500] text-sm">Discount</label>
+                                      <input
+                                        type="number"
+                                        value={editedBusinessSpecialPrice[item.id]?.variant_discount ?? item.variant_discount ?? ""}
+                                        onChange={(e) => handleBusinessSpecialPriceChange("variant_discount", e.target.value, item)}
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      />
+                                    </div>
+                                    {/* Quantity */}
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-black font-[500] text-sm">Quantity</label>
+                                      <input
+                                        type="number"
+                                        value={editedBusinessSpecialPrice[item.id]?.quantity ?? item.quantity ?? ""}
+                                        onChange={(e) => handleBusinessSpecialPriceChange("quantity", e.target.value, item)}
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                      />
+                                    </div>
+                                    {/* Total Price */}
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-black font-[500] text-sm">Total Price</label>
+                                      <input
+                                        type="number"
+                                        value={editedBusinessSpecialPrice[item.id]?.total_price ?? item.total_price ?? ""}
+                                        readOnly
+                                        className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">
-                        No special prices found for this business.
-                      </p>
+                      <p className="text-sm text-gray-500">No special prices found for this business.</p>
                     )}
                   </div>
 

@@ -17,6 +17,11 @@ const AddOrder = () => {
       order_date: "",
       status: "pending",
       total_amount: "",
+      order_discount_amount: "",
+      vat_percentage: "",
+      vat_amount: "",
+      delivery_amount: "",
+      payable_amount: "",
       payment_method: "",
       payment_status: "pending",
       source: "crm",
@@ -74,10 +79,13 @@ const AddOrder = () => {
   const [specialPrices, setSpecialPrices] = useState([]);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
   const [selectedSpecialPriceIds, setSelectedSpecialPriceIds] = useState([]);
-  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] = useState([]);
+  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] =
+    useState([]);
 
   const [editedSpecialPrice, setEditedSpecialPrice] = useState({});
-  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState({});
+  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState(
+    {}
+  );
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
@@ -531,9 +539,13 @@ const AddOrder = () => {
         ...prev[item.id],
         [field]: value,
       };
-      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
       const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
       const total_price = (quantity * (special_price - discount)).toFixed(2);
       return {
         ...prev,
@@ -548,9 +560,13 @@ const AddOrder = () => {
         ...prev[item.id],
         [field]: value,
       };
-      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
       const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
       const total_price = (quantity * (special_price - discount)).toFixed(2);
       return {
         ...prev,
@@ -635,10 +651,14 @@ const AddOrder = () => {
         const item = specialPrices.find((sp) => sp.id === id);
         const edited = editedSpecialPrice[id] || {};
         if (item) {
-          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
           const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-          const total_price = (quantity * (special_price - discount));
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
             variant_id: item.id,
             meter_range_id: item.meter_range_id || null,
@@ -657,10 +677,14 @@ const AddOrder = () => {
         const item = specialBusinessPrices.find((sp) => sp.id === id);
         const edited = editedBusinessSpecialPrice[id] || {};
         if (item) {
-          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
           const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-          const total_price = (quantity * (special_price - discount));
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
             variant_id: item.id,
             meter_range_id: item.meter_range_id || null,
@@ -673,10 +697,29 @@ const AddOrder = () => {
       });
     }
 
-    // ─── Compute Grand Total ─────────────────────────────────
+    // ─── Compute Grand Total ────────────────────────────────
+
     const total_amount = transformedOrderItems.reduce(
       (sum, itm) => sum + itm.total_price,
       0
+    );
+
+    const vat_percentage = 20; // 20%
+    const vat_amount = parseFloat(
+      ((total_amount * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+
+    const payable_amount = parseFloat(
+      (total_amount + vat_amount + delivery_amount).toFixed(2)
+    );
+
+    const grossAmount = transformedOrderItems.reduce(
+      (sum, itm) => sum + itm.price_per_unit * itm.quantity,
+      0
+    );
+    const order_discount_amount = parseFloat(
+      (grossAmount - total_amount).toFixed(2)
     );
 
     const finalPayload = {
@@ -684,6 +727,11 @@ const AddOrder = () => {
       order: {
         ...updatedFormData.order,
         total_amount,
+        vat_percentage,
+        vat_amount,
+        delivery_amount,
+        payable_amount,
+        order_discount_amount,
       },
       items: transformedOrderItems,
     };
@@ -724,6 +772,11 @@ const AddOrder = () => {
               order_date: "",
               status: "pending",
               total_amount: "",
+              order_discount_amount: "",
+              vat_percentage: "",
+              vat_amount: "",
+              delivery_amount: "",
+              payable_amount: "",
               payment_method: "",
               payment_status: "pending",
               source: "crm",
@@ -799,6 +852,22 @@ const AddOrder = () => {
     updated.splice(index, 1);
     setFormData({ ...formData, [type]: updated });
   };
+
+  // Add these derived values at the top of the component (after state):
+  const totalAmount = formData.items.reduce((sum, item) => {
+    const price = parseFloat(item.price_per_unit || 0);
+    const discount = parseFloat(item.discount_applied || 0);
+    const quantity = parseFloat(item.quantity || 0);
+    return sum + (price - discount) * quantity;
+  }, 0);
+  const vatPercentage = 20;
+  const vatAmount = parseFloat(
+    ((totalAmount * vatPercentage) / 100).toFixed(2)
+  );
+  const deliveryAmount = 0; // You can make this editable if needed
+  const payableAmount = parseFloat(
+    (totalAmount + vatAmount + deliveryAmount).toFixed(2)
+  );
 
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -952,8 +1021,12 @@ const AddOrder = () => {
                                     type="checkbox"
                                     name="selectedSpecialPrice"
                                     value={item.id}
-                                    checked={selectedSpecialPriceIds.includes(item.id)}
-                                    onChange={() => handleSpecialPriceCheckbox(item.id)}
+                                    checked={selectedSpecialPriceIds.includes(
+                                      item.id
+                                    )}
+                                    onChange={() =>
+                                      handleSpecialPriceCheckbox(item.id)
+                                    }
                                     className="mr-3"
                                   />
 
@@ -966,22 +1039,24 @@ const AddOrder = () => {
                                       {item.special_price}
                                     </p>
 
-                                    {selectedSpecialPriceIds.includes(item.id) && (
+                                    {selectedSpecialPriceIds.includes(
+                                      item.id
+                                    ) && (
                                       <div className="mt-4 p-4 border rounded bg-gray-50">
                                         <div className="flex items-end flex-wrap gap-6">
                                           {/* Meter Range */}
                                           {item?.uses_meter_range && (
-                                          <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">
-                                              Meter Range
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={`${item.meter_range_min} - ${item.meter_range_max}`}
-                                              readOnly
-                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
-                                            />
-                                          </div>
+                                            <div className="flex flex-col gap-1">
+                                              <label className="text-black font-[500] text-sm">
+                                                Meter Range
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={`${item.meter_range_min} - ${item.meter_range_max}`}
+                                                readOnly
+                                                className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
+                                              />
+                                            </div>
                                           )}
 
                                           {/* Price */}
@@ -992,7 +1067,8 @@ const AddOrder = () => {
                                             <input
                                               type="number"
                                               value={
-                                                editedSpecialPrice[item.id]?.special_price ??
+                                                editedSpecialPrice[item.id]
+                                                  ?.special_price ??
                                                 item.special_price ??
                                                 ""
                                               }
@@ -1015,7 +1091,8 @@ const AddOrder = () => {
                                             <input
                                               type="number"
                                               value={
-                                                editedSpecialPrice[item.id]?.variant_discount ??
+                                                editedSpecialPrice[item.id]
+                                                  ?.variant_discount ??
                                                 item.variant_discount ??
                                                 ""
                                               }
@@ -1038,7 +1115,8 @@ const AddOrder = () => {
                                             <input
                                               type="number"
                                               value={
-                                                editedSpecialPrice[item.id]?.quantity ??
+                                                editedSpecialPrice[item.id]
+                                                  ?.quantity ??
                                                 item.quantity ??
                                                 ""
                                               }
@@ -1061,7 +1139,8 @@ const AddOrder = () => {
                                             <input
                                               type="number"
                                               value={
-                                                editedSpecialPrice[item.id]?.total_price ??
+                                                editedSpecialPrice[item.id]
+                                                  ?.total_price ??
                                                 item.total_price ??
                                                 ""
                                               }
@@ -1277,8 +1356,12 @@ const AddOrder = () => {
                               type="checkbox"
                               name="selectedBusinessSpecialPrice"
                               value={item.id}
-                              checked={selectedBusinessSpecialPriceIds.includes(item.id)}
-                              onChange={() => handleBusinessSpecialPriceCheckbox(item.id)}
+                              checked={selectedBusinessSpecialPriceIds.includes(
+                                item.id
+                              )}
+                              onChange={() =>
+                                handleBusinessSpecialPriceCheckbox(item.id)
+                              }
                               className="mr-3"
                             />
                             <div className="flex-1">
@@ -1289,7 +1372,9 @@ const AddOrder = () => {
                                 <strong>Special Price:</strong> £
                                 {item.special_price}
                               </p>
-                              {selectedBusinessSpecialPriceIds.includes(item.id) && (
+                              {selectedBusinessSpecialPriceIds.includes(
+                                item.id
+                              ) && (
                                 <div className="mt-4 p-4 border rounded bg-gray-50">
                                   <div className="flex items-end flex-wrap gap-6">
                                     {/* Meter Range */}
@@ -1314,7 +1399,8 @@ const AddOrder = () => {
                                       <input
                                         type="number"
                                         value={
-                                          editedBusinessSpecialPrice[item.id]?.special_price ??
+                                          editedBusinessSpecialPrice[item.id]
+                                            ?.special_price ??
                                           item.special_price ??
                                           ""
                                         }
@@ -1337,7 +1423,8 @@ const AddOrder = () => {
                                         type="number"
                                         name="discount"
                                         value={
-                                          editedBusinessSpecialPrice[item.id]?.variant_discount ??
+                                          editedBusinessSpecialPrice[item.id]
+                                            ?.variant_discount ??
                                           item.variant_discount ??
                                           ""
                                         }
@@ -1360,7 +1447,8 @@ const AddOrder = () => {
                                         type="number"
                                         name="quantity"
                                         value={
-                                          editedBusinessSpecialPrice[item.id]?.quantity ??
+                                          editedBusinessSpecialPrice[item.id]
+                                            ?.quantity ??
                                           item.quantity ??
                                           ""
                                         }
@@ -1382,7 +1470,8 @@ const AddOrder = () => {
                                       <input
                                         type="number"
                                         value={
-                                          editedBusinessSpecialPrice[item.id]?.total_price ??
+                                          editedBusinessSpecialPrice[item.id]
+                                            ?.total_price ??
                                           item.total_price ??
                                           ""
                                         }
@@ -1853,15 +1942,15 @@ const AddOrder = () => {
 
                       {productVariants[index] &&
                         productVariants[index].length > 0 && (
-                          <div className="flex gap-2 mt-2">
+                          <div className="flex items-end gap-2 mt-2">
                             {productVariants[index].map((variant) => (
                               <button
                                 key={variant.id}
                                 type="button"
-                                className={`border px-3 rounded text-sm ${
+                                className={`px-3 py-2 rounded text-sm ${
                                   selectedVariant[index]?.id === variant.id
                                     ? "bg-blue-600 text-white"
-                                    : "bg-gray-100"
+                                    : "bg-gray-200"
                                 }`}
                                 onClick={() =>
                                   setSelectedVariant((prev) => ({
@@ -1874,7 +1963,6 @@ const AddOrder = () => {
                                   variant.sku ||
                                   `Variant ${variant.id}`}
                               </button>
-                              
                             ))}
                           </div>
                         )}
@@ -1890,7 +1978,7 @@ const AddOrder = () => {
                               <input
                                 type="text"
                                 value={selectedVariant[index].color_name || ""}
-                                className=" py-1 px-4 border border-gray-400 rounded bg-white"
+                                className="w-24 py-1 px-4 border border-gray-400 rounded bg-white"
                                 readOnly
                               />
                             </p>
@@ -1972,7 +2060,6 @@ const AddOrder = () => {
                                         e.target.value
                                       )
                                     }
-                                    readOnly
                                   />
                                 </div>
 
@@ -1997,7 +2084,28 @@ const AddOrder = () => {
                                         e.target.value
                                       )
                                     }
+                                  />
+                                </div>
+
+                                {/* Total Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Total Price"
+                                  >
+                                    Total Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="total price"
                                     readOnly
+                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                    value={
+                                      formData.items[index].total_price !==
+                                      undefined
+                                        ? formData.items[index].total_price
+                                        : ""
+                                    }
                                   />
                                 </div>
 
@@ -2032,7 +2140,7 @@ const AddOrder = () => {
                                     return (
                                       <input
                                         type="number"
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                         placeholder={`quantity`}
                                         min={minQty}
                                         max={maxQty}
@@ -2091,25 +2199,50 @@ const AddOrder = () => {
                                   })()}
                                 </div>
 
-                                {/* Total Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Total Price"
-                                  >
-                                    Total Price
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    VAT %
                                   </label>
                                   <input
                                     type="number"
-                                    placeholder="total price"
+                                    value={vatPercentage}
                                     readOnly
-                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                    value={
-                                      formData.items[index].total_price !==
-                                      undefined
-                                        ? formData.items[index].total_price
-                                        : ""
-                                    }
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    VAT Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={vatAmount}
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    Delivery Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={deliveryAmount}
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    Payable Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={payableAmount}
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
                                 </div>
                               </div>

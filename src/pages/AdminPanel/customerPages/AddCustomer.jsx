@@ -168,7 +168,7 @@ const handleProductChange = async (index, field, value) => {
         if (response.data.success) {
           setProductVariants((prev) => ({
             ...prev,
-            [index]: response.data.product.variants,
+            [index]: response.data.variants,
           }));
 
           updatedProducts[index].variants = response.data.product.variants.map((variant) => ({
