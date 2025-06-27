@@ -7,12 +7,14 @@ const OrderDetailNew = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInvoiceReady, setIsInvoiceReady] = useState(false);
+
 
   useEffect(() => {
     const fetchOrder = async () => {
       try {
         const response = await axios.get(
-          `https://britishquilting.fastranking.tech/api/orders/${id}`
+          `https://britishquilting.fastranking.cloud/api/order/${id}`
         );
 
         // Update here: Access the correct key
@@ -85,6 +87,28 @@ const OrderDetailNew = () => {
           </div>
         ))}
       </div>
+      
+<div className="mt-5 flex gap-4 items-center">
+  <button
+    className="px-4 py-2 rounded-md text-white bg-violet-900 disabled:opacity-50 disabled:cursor-not-allowed"
+    disabled={!isInvoiceReady}
+  >
+    Generate Invoice
+  </button>
+  <button
+    className="px-4 py-2 rounded-md text-white bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+    disabled={!isInvoiceReady}
+  >
+    Download Invoice
+  </button>
+  <button
+    className="px-4 py-2 rounded-md text-white bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+    disabled={!isInvoiceReady}
+  >
+    Send Email
+  </button>
+</div>
+
       </div>
     </div>
   );

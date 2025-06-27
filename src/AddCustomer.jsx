@@ -165,7 +165,7 @@ const AddCustomer = () => {
   // const handleSubmit = async (e) => {
   //   e.preventDefault();
   //   try {
-  //     await axios.post("https://britishquilting.fastranking.tech/api/new-customer", formData);
+  //     await axios.post("https://britishquilting.fastranking.cloud/api/new-customer", formData);
   //     alert("Form submitted successfully!");
   //   } catch (err) {
   //     console.error(err);
@@ -184,7 +184,7 @@ const handleSubmit = async (e) => {
     }
 
     const response = await axios.post(
-      "https://britishquilting.fastranking.tech/api/new-customer",
+      "https://britishquilting.fastranking.cloud/api/new-customer",
       dataToSend
     );
 

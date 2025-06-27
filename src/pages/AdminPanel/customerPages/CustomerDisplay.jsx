@@ -40,7 +40,7 @@ const CustomerDisplay = () => {
     const getData = async () => {
       try {
         const api = await axios.get(
-          "https://britishquilting.fastranking.tech/api/customers"
+          "https://britishquilting.fastranking.cloud/api/customers"
         );
         console.log("Fetched data:", api.data.data);
         setData(api.data.data);

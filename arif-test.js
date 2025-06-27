@@ -18,7 +18,7 @@ function AddProduct() {
   // Category API
   const displayCat = async () => {
     const cat_res = await axios.get(
-      `https://britishquilting.fastranking.tech/api/category-new`
+      `https://britishquilting.fastranking.cloud/api/category-new`
     );
     setCategories(cat_res.data.data);
   };
@@ -34,7 +34,7 @@ function AddProduct() {
   //Suppliear API
   const supDisplay = async () => {
     const sup_res = await axios.get(
-      `https://britishquilting.fastranking.tech/api/suppliers`
+      `https://britishquilting.fastranking.cloud/api/suppliers`
     );
     setSupplier(sup_res.data.data);
     console.log(sup_res.data.data);
@@ -43,7 +43,7 @@ function AddProduct() {
   // Color API
   const displayColor = async () => {
     const color_res = await axios.get(
-      `https://britishquilting.fastranking.tech/api/colors`
+      `https://britishquilting.fastranking.cloud/api/colors`
     );
     setColor(color_res.data.data);
     console.log(color_res.data.data);

@@ -126,7 +126,7 @@ const AddOrder = () => {
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/products")
+      .get("https://britishquilting.fastranking.cloud/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -152,7 +152,7 @@ const AddOrder = () => {
     if (selectedProduct) {
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
+          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
         );
 
         if (res.data.success) {
@@ -373,7 +373,7 @@ const AddOrder = () => {
 
     if (selectedType === "b2b") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/businesses")
+        .get("https://britishquilting.fastranking.cloud/api/businesses")
         .then((res) => {
           if (res.data.status) {
             setBusiness(res.data.data);
@@ -382,7 +382,7 @@ const AddOrder = () => {
         .catch((err) => console.error(err));
     } else if (selectedType === "b2c") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/customers")
+        .get("https://britishquilting.fastranking.cloud/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -404,7 +404,7 @@ const AddOrder = () => {
       if (!formData.customer_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/customer/${formData.customer_id}`
+          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}`
         );
         setSelectedCustomer(res.data?.data || null);
       } catch (err) {
@@ -422,7 +422,7 @@ const AddOrder = () => {
       if (!formData.customer_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/customer/${formData.customer_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices`
         );
         setSpecialPrices(res.data?.data || []);
       } catch (err) {
@@ -442,7 +442,7 @@ const AddOrder = () => {
       if (!formData.business_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/business/${formData.business_id}`
+          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}`
         );
         setSelectedBusiness(res.data?.data || null);
       } catch (err) {
@@ -460,7 +460,7 @@ const AddOrder = () => {
       if (!formData.business_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/business/${formData.business_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices`
         );
         setSpecialBusinessPrices(res.data?.data || []);
       } catch (err) {
@@ -661,7 +661,7 @@ const AddOrder = () => {
     // ─── Submit ───────────────────────────────────────────────
     axios
       .post(
-        "https://britishquilting.fastranking.tech/api/new-order",
+        "https://britishquilting.fastranking.cloud/api/new-order",
         finalPayload
       )
       .then((res) => {
@@ -757,11 +757,11 @@ const AddOrder = () => {
 
   // Fetch business and customer lists on mount for direct access
   useEffect(() => {
-    axios.get("https://britishquilting.fastranking.tech/api/businesses")
+    axios.get("https://britishquilting.fastranking.cloud/api/businesses")
       .then(res => {
         if (res.data.status) setBusiness(res.data.data);
       });
-    axios.get("https://britishquilting.fastranking.tech/api/customers")
+    axios.get("https://britishquilting.fastranking.cloud/api/customers")
       .then(res => {
         if (res.data.status) setCustomers(res.data.data);
       });

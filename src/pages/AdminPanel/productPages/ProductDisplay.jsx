@@ -20,7 +20,7 @@ const ProductDisplay = () => {
   useEffect(() => {
     const getData = async () => {
       try {
-        const api = await axios.get("https://britishquilting.fastranking.tech/api/products");
+        const api = await axios.get("https://britishquilting.fastranking.cloud/api/products");
         console.log("Fetched data:", api.data.products);
     
         setData(api.data.products); 

@@ -30,13 +30,14 @@ import Uploadpro from "./pages/AdminPanel/productPages/Uploadpro.jsx";
 import AddProductData from "./pages/add-product/AddProductData.jsx";
 import AddOrderAuto from "./pages/AdminPanel/orderPages/AddOrderAuto.jsx";
 
-
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AddCus from "./pages/AdminPanel/customerPages/AddCus.jsx";
 import AddOrder from "./pages/AdminPanel/orderPages/AddOrder.jsx";
+
+import { AuthProvider } from "./context/AuthContext.jsx";
 
 // Component to handle layout
 const Layout = ({ children }) => {
@@ -82,196 +83,121 @@ function App() {
   }, [navigate, location.pathname]);
 
   return (
-    <Layout>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-otp" element={<VerifyOtp />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/reset-success" element={<ResetSuccess />} />
-        <Route path="/add-cus" element={<AddCus />} />
+    <AuthProvider>
+      <Layout>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/reset-success" element={<ResetSuccess />} />
+          <Route path="/add-cus" element={<AddCus />} />
 
-        {/* Protected Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected Routes */}
+          <Route path="/dashboard" element={<Home />} />
 
-        {/* Product Flow */}
-        <Route
-          path="/product-form"
-          element={
-            <ProtectedRoute>
-              <ProductForm />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-product-data"
-          element={
-            <ProtectedRoute>
-               <AddProductData/>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/product-list"
-          element={
-            <ProtectedRoute>
-              <ProductList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/product-display"
-          element={
-            <ProtectedRoute>
-              <ProductDisplay />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-product"
-          element={
-            <ProtectedRoute>
-              <AddProduct />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/product-add-new"
-          element={
-            <ProtectedRoute>
-              <ProductAddNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/upload-pro"
-          element={
-            <ProtectedRoute>
-              <Uploadpro />
-            </ProtectedRoute>
-          }
-        />
+          {/* Product Flow */}
+          <Route
+            path="/product-form"
+            element={
+              <ProtectedRoute>
+                <ProductForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/add-product-data"
+            element={
+              <ProtectedRoute>
+                <AddProductData />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-list"
+            element={
+              <ProtectedRoute>
+                <ProductList />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/product-display" element={<ProductDisplay />} />
+          <Route
+            path="/add-product"
+            element={
+              <ProtectedRoute>
+                <AddProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/product-add-new" element={<ProductAddNew />} />
+          <Route
+            path="/upload-pro"
+            element={
+              <ProtectedRoute>
+                <Uploadpro />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Order Flow */}
-        <Route
-          path="/add-new-order"
-          element={
-            <ProtectedRoute>
-              <AddNewOrder />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-order"
-          element={
-            <ProtectedRoute>
-              <AddOrder />
-            </ProtectedRoute>
-          }
-        />
-            <Route
-          path="/add-order-auto"
-          element={
-            <ProtectedRoute>
-              <AddOrderAuto />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/order-display"
-          element={
-            <ProtectedRoute>
-              <OrderDisplay />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/order-detail-new/:id"
-          element={
-            <ProtectedRoute>
-              <OrderDetailNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/order-list"
-          element={
-            <ProtectedRoute>
-              <OrderList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/order-details/:id"
-          element={
-            <ProtectedRoute>
-              <OrderDetails />
-            </ProtectedRoute>
-          }
-        />
+          {/* Order Flow */}
+          <Route
+            path="/add-new-order"
+            element={
+              <ProtectedRoute>
+                <AddNewOrder />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/add-order" element={<AddOrder />} />
+          <Route path="/add-order-auto" element={<AddOrderAuto />} />
+          <Route path="/order-display" element={<OrderDisplay />} />
+          <Route
+            path="/order-detail-new/:id"
+            element={
+              <ProtectedRoute>
+                <OrderDetailNew />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/order-list" element={<OrderList />} />
+          <Route
+            path="/order-details/:id"
+            element={
+              <ProtectedRoute>
+                <OrderDetails />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Customer Flow */}
-        <Route
-          path="/customer-display"
-          element={
-            <ProtectedRoute>
-              <CustomerDisplay />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer-list"
-          element={
-            <ProtectedRoute>
-              <CustomerList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-customer"
-          element={
-            <ProtectedRoute>
-              <AddCustomer />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer-info/:id"
-          element={
-            <ProtectedRoute>
-              <CustomerInfo />
-            </ProtectedRoute>
-          }
-        />
+          {/* Customer Flow */}
+          <Route path="/customer-display" element={<CustomerDisplay />} />
+          <Route
+            path="/customer-list"
+            element={
+              <ProtectedRoute>
+                <CustomerList />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/add-customer" element={<AddCustomer />} />
+          <Route path="/customer-info/:id" element={<CustomerInfo />} />
 
-        {/* User Flow */}
-        <Route
-          path="/user-list"
-          element={
-            <ProtectedRoute>
-              <UserList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-user"
-          element={
-            <ProtectedRoute>
-              <AddUser />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-      <ToastContainer position="top-right" autoClose={3000} />
-    </Layout>
+          {/* User Flow */}
+          <Route path="/user-list" element={<UserList />} />
+          <Route
+            path="/add-user"
+            element={
+              <ProtectedRoute>
+                <AddUser />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+        <ToastContainer position="top-right" autoClose={3000} />
+      </Layout>
+    </AuthProvider>
   );
 }
 

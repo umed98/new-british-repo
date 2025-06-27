@@ -6,7 +6,7 @@ const AddProduct = () => {
 
   // useEffect(() => {
   //   axios
-  //     .get("https://britishquilting.fastranking.tech/api/sizes")
+  //     .get("https://britishquilting.fastranking.cloud/api/sizes")
   //     .then((response) => {
   //       if (response.data.status) {
   //         setSizes(response.data.data);
@@ -196,7 +196,7 @@ const AddProduct = () => {
 
     try {
       const res = await axios.post(
-        "https://britishquilting.fastranking.tech/api/upload-product",
+        "https://britishquilting.fastranking.cloud/api/upload-product",
         fd,
         {
           headers: { "Content-Type": "multipart/form-data" },

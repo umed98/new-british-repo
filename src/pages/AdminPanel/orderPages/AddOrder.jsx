@@ -73,16 +73,16 @@ const AddOrder = () => {
   const [selection, setSelection] = useState({});
   const [specialPrices, setSpecialPrices] = useState([]);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
-  const [selectedSpecialPriceId, setSelectedSpecialPriceId] = useState(null);
-  const [selectedBusinessSpecialPriceId, setSelectedBusinessSpecialPriceId] =
-    useState(null);
+  const [selectedSpecialPriceIds, setSelectedSpecialPriceIds] = useState([]);
+  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] = useState([]);
 
-  console.log("Special Price", specialPrices);
+  const [editedSpecialPrice, setEditedSpecialPrice] = useState({});
+  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState({});
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/products")
+      .get("https://britishquilting.fastranking.cloud/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -91,69 +91,7 @@ const AddOrder = () => {
       .catch((err) => console.error("API error:", err));
   }, []);
 
-  // ─── 5) HANDLER: WHEN USER CHOOSES A PRODUCT FOR A GIVEN ITEM INDEX ───────
-  // const handleProductChange = async (index, field, value) => {
-  //   // 1) Update formData.items[index][field] = value
-  //   const updatedItems = [...formData.items];
-  //   updatedItems[index][field] = value;
-
-  //   // 2) Find the full product object by name
-  //   const selectedProduct = productOptions.find(
-  //     (p) => p.product_name === value
-  //   );
-
-  //   // 3) Fetch variants for that product and initialize companion states
-  //   if (selectedProduct) {
-  //     try {
-  //       const res = await axios.get(
-  //         `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
-  //       );
-  //       if (res.data.success) {
-  //         const variants = res.data.product.variants || [];
-
-  //         // Store all variants under this item index
-  //         setProductVariants((prev) => ({
-  //           ...prev,
-  //           [index]: variants,
-  //         }));
-
-  //         // Automatically pick a default "color_id" & defaultVariant
-  //         const variantsWithColor = variants.filter((v) => v.color_id);
-  //         let defaultColorId = null;
-  //         let defaultVariant = null;
-
-  //         if (variantsWithColor.length > 0) {
-  //           defaultColorId = variantsWithColor[0].color_id;
-  //           defaultVariant = variantsWithColor.find(
-  //             (v) => v.color_id === defaultColorId
-  //           );
-  //         } else if (variants.length > 0) {
-  //           // Fallback if no color_id present
-  //           defaultColorId = null;
-  //           defaultVariant = variants[0];
-  //         }
-
-  //         setSelectedColor((prev) => ({
-  //           ...prev,
-  //           [index]: defaultColorId,
-  //         }));
-
-  //         setSelectedVariant((prev) => ({
-  //           ...prev,
-  //           [index]: defaultVariant,
-  //         }));
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to fetch variants:", err);
-  //     }
-  //   }
-
-  //   // 4) Finally write back the updated items array
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     items: updatedItems,
-  //   }));
-  // };
+  // -----------------------------------Handeling the Product change and its variants on "Selected Product"---------------------------------------------------------
   const handleProductChange = async (index, field, value) => {
     const updatedItems = [...formData.items];
 
@@ -170,11 +108,11 @@ const AddOrder = () => {
     if (selectedProduct) {
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
+          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
         );
 
         if (res.data.success) {
-          const variants = res.data.product.variants || [];
+          const variants = res.data.variants || [];
           const defaultVariant =
             variants.find((v) => v.color_id) || variants[0];
 
@@ -190,10 +128,12 @@ const AddOrder = () => {
 
           setSelectedVariant((prev) => ({
             ...prev,
+
             [index]: defaultVariant,
           }));
 
-          const defaultMeterOptions = defaultVariant.meter_prices || [];
+          const defaultMeterOptions = defaultVariant.meter_pricing || [];
+          console.log(defaultMeterOptions);
 
           setMeterOptions((prev) => ({
             ...prev,
@@ -203,7 +143,7 @@ const AddOrder = () => {
           setSelection((prev) => ({
             ...prev,
             [index]: {
-              meterRangeId: "",
+              meter_range_id: "",
               price: "",
               discount: "",
               finalPrice: "",
@@ -332,7 +272,7 @@ const AddOrder = () => {
     setSelection((prev) => ({
       ...prev,
       [newIndex]: {
-        meterRangeId: "",
+        meter_range_id: "",
         price: "",
         discount: "",
         finalPrice: "",
@@ -390,7 +330,7 @@ const AddOrder = () => {
 
     if (selectedType === "b2b") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/businesses")
+        .get("https://britishquilting.fastranking.cloud/api/businesses")
         .then((res) => {
           if (res.data.status) {
             setBusiness(res.data.data);
@@ -399,7 +339,7 @@ const AddOrder = () => {
         .catch((err) => console.error(err));
     } else if (selectedType === "b2c") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/customers")
+        .get("https://britishquilting.fastranking.cloud/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -421,7 +361,7 @@ const AddOrder = () => {
       if (!formData.customer_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/customer/${formData.customer_id}`
+          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}`
         );
         setSelectedCustomer(res.data?.data || null);
       } catch (err) {
@@ -439,7 +379,7 @@ const AddOrder = () => {
       if (!formData.customer_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/customer/${formData.customer_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices-new`
         );
         setSpecialPrices(res.data?.data || []);
       } catch (err) {
@@ -459,7 +399,7 @@ const AddOrder = () => {
       if (!formData.business_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/business/${formData.business_id}`
+          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}`
         );
         setSelectedBusiness(res.data?.data || null);
       } catch (err) {
@@ -477,7 +417,7 @@ const AddOrder = () => {
       if (!formData.business_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.tech/api/business/${formData.business_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices-new`
         );
         setSpecialBusinessPrices(res.data?.data || []);
       } catch (err) {
@@ -549,9 +489,9 @@ const AddOrder = () => {
     const updatedSelection = { ...selection[index], [field]: value };
     const updatedItems = [...formData.items];
 
-    if (field === "meterRangeId") {
+    if (field === "meter_range_id") {
       const range = meterOptions[index]?.find(
-        (opt) => opt.id === parseInt(value)
+        (opt) => opt.meter_range_id === parseInt(value)
       );
       updatedSelection.price = range?.price || "";
       updatedSelection.discount = range?.discount || "";
@@ -585,6 +525,51 @@ const AddOrder = () => {
   };
 
   // ─── 16) FORM SUBMISSION ─────────────────────────────────────────────────────
+  const handleSpecialPriceChange = (field, value, item) => {
+    setEditedSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const total_price = (quantity * (special_price - discount)).toFixed(2);
+      return {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+    });
+  };
+
+  const handleBusinessSpecialPriceChange = (field, value, item) => {
+    setEditedBusinessSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const total_price = (quantity * (special_price - discount)).toFixed(2);
+      return {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+    });
+  };
+
+  const handleSpecialPriceCheckbox = (id) => {
+    setSelectedSpecialPriceIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
+
+  const handleBusinessSpecialPriceCheckbox = (id) => {
+    setSelectedBusinessSpecialPriceIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -627,13 +612,12 @@ const AddOrder = () => {
     }
 
     // ─── TRANSFORM ITEMS ───────────────────────────────────────
-    const transformedOrderItems = updatedFormData.items.map((item, index) => {
+    let transformedOrderItems = updatedFormData.items.map((item, index) => {
       const variant = selectedVariant[index] || {};
       const price_per_unit = parseFloat(item.price_per_unit || 0);
       const discount_applied = parseFloat(item.discount_applied || 0);
       const quantity = parseInt(item.quantity || 0);
       const total_price = (price_per_unit - discount_applied) * quantity;
-
       return {
         type: item.type,
         variant_id: item.variant_id,
@@ -644,6 +628,50 @@ const AddOrder = () => {
         total_price,
       };
     });
+
+    // Add selected special prices (customer)
+    if (selectedSpecialPriceIds.length > 0) {
+      selectedSpecialPriceIds.forEach((id) => {
+        const item = specialPrices.find((sp) => sp.id === id);
+        const edited = editedSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+          const total_price = (quantity * (special_price - discount));
+          transformedOrderItems.push({
+            variant_id: item.id,
+            meter_range_id: item.meter_range_id || null,
+            quantity,
+            price_per_unit: special_price,
+            discount_applied: discount,
+            total_price,
+          });
+        }
+      });
+    }
+
+    // Add selected business special prices
+    if (selectedBusinessSpecialPriceIds.length > 0) {
+      selectedBusinessSpecialPriceIds.forEach((id) => {
+        const item = specialBusinessPrices.find((sp) => sp.id === id);
+        const edited = editedBusinessSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+          const total_price = (quantity * (special_price - discount));
+          transformedOrderItems.push({
+            variant_id: item.id,
+            meter_range_id: item.meter_range_id || null,
+            quantity,
+            price_per_unit: special_price,
+            discount_applied: discount,
+            total_price,
+          });
+        }
+      });
+    }
 
     // ─── Compute Grand Total ─────────────────────────────────
     const total_amount = transformedOrderItems.reduce(
@@ -678,7 +706,7 @@ const AddOrder = () => {
     // ─── Submit ───────────────────────────────────────────────
     axios
       .post(
-        "https://britishquilting.fastranking.tech/api/new-order",
+        "https://britishquilting.fastranking.cloud/api/new-order-new-latest",
         finalPayload
       )
       .then((res) => {
@@ -731,7 +759,6 @@ const AddOrder = () => {
             ],
           });
 
-       
           setProductVariants({});
           setSelectedVariant({});
           setSelectedColor({});
@@ -748,7 +775,7 @@ const AddOrder = () => {
         console.error("Submission Error:", error);
         alert("An error occurred while submitting the order.");
       });
-         console.log(finalPayload);
+    console.log(finalPayload, "final payload");
   };
 
   const addAddress = (type) => {
@@ -772,119 +799,6 @@ const AddOrder = () => {
     updated.splice(index, 1);
     setFormData({ ...formData, [type]: updated });
   };
-  // const handleSubmit = (e) => {
-  //   e.preventDefault();
-
-  //   const transformedOrderItems = [];
-
-  //   formData.item.forEach((item, index) => {
-  //     const sizes = selectedSizes[index] || [];
-  //     const variant = selectedVariant[index] || {};
-  //     const quantityMap = quantities[index] || {};
-
-  //     sizes.forEach((sizeId) => {
-  //       const quantity = quantityMap[sizeId] || "0";
-  //       const price = variant.price || "0";
-
-  //       transformedOrderItems.push({
-  //         sku: variant.sku || "",
-  //         product_id: item.product_id,
-  //         variant_id: variant.id || "",
-  //         quantity,
-  //         size_id: sizeId,
-  //         price,
-  //       });
-  //     });
-  //   });
-
-  //   // Build base payload
-  //   const finalPayload = {
-  //     ...formData,
-  //     item: transformedOrderItems,
-  //   };
-
-  //   // Handle order_type logic
-  //   if (formData.order_type === "Customer") {
-  //     delete finalPayload.business_id;
-  //   }
-
-  //   // Handle billing address
-  //   if (billingAddress) {
-  //     finalPayload.billing_id = billingAddress;
-  //     delete finalPayload.billing_addresses;
-  //   } else {
-  //     delete finalPayload.billing_id;
-  //   }
-
-  //   // Handle shipping address
-  //   if (shippingAddress) {
-  //     finalPayload.shipping_id = shippingAddress;
-  //     delete finalPayload.shipping_addresses;
-  //   } else {
-  //     delete finalPayload.shipping_id;
-  //   }
-
-  //   // Submit to API
-  //   axios
-  //     .post(
-  //       "https://britishquilting.fastranking.tech/api/save-new-order",
-  //       finalPayload
-  //     )
-  //     .then((res) => {
-  //       console.log("API Response:", res);
-  //       if (res.status === 200 || res.status === 201) {
-  //         alert("Order submitted successfully!");
-  //         // Reset form and state
-  //         setFormData({
-  //           order_type: "",
-  //           business_id: "",
-  //           customer_id: "",
-  //           payment_method: "",
-  //           item: [
-  //             {
-  //               sku: "",
-  //               product_id: "",
-  //               variant_id: "",
-  //               quantity: "",
-  //               size_id: "",
-  //               price: "",
-  //             },
-  //           ],
-  //           billing_addresses: [
-  //             {
-  //               address_line_1: "",
-  //               address_line_2: "",
-  //               city: "",
-  //               postal_code: "",
-  //               country: "",
-  //             },
-  //           ],
-  //           shipping_addresses: [
-  //             {
-  //               address_line_1: "",
-  //               address_line_2: "",
-  //               city: "",
-  //               postal_code: "",
-  //               country: "",
-  //             },
-  //           ],
-  //         });
-  //         setSelectedVariant({});
-  //         setSelectedSizes({});
-  //         setQuantities({});
-  //         setSelectedColor({});
-  //         setBillingAddress(null);
-  //         setShippingAddress(null);
-  //         navigate("/order-display");
-  //       } else {
-  //         alert("Something went wrong. Please check your input.");
-  //       }
-  //     })
-  //     .catch((error) => {
-  //       console.error("Submission Error:", error);
-  //       alert("An error occurred while submitting the order.");
-  //     });
-  // };
 
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -972,57 +886,6 @@ const AddOrder = () => {
                   className="py-[8.5px] px-4 text-sm cursor-pointer rounded-[4px] border-1 border-gray-300"
                 />
               </div>
-              {/* <div className="flex flex-col gap-1 w-[300px]">
-                <label htmlFor="name_selector" className="text-sm font-[600]">
-                  Business or Contact Name
-                </label>
-                <div className="relative">
-                  <select
-                    id="name_selector"
-                    name={
-                      formData.order_type === "Business"
-                        ? "business_id"
-                        : "customer_id"
-                    }
-                    value={
-                      formData.order_type === "Business"
-                        ? formData.business_id
-                        : formData.customer_id
-                    }
-                    onChange={handleChange}
-                    className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
-                  >
-                    <option value="" disabled>
-                      Select Name
-                    </option>
-                    {(formData.order_type === "Business"
-                      ? business
-                      : customers
-                    ).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {formData.order_type === "Business"
-                          ? item.business_name
-                          : `${item.first_name} ${item.last_name}`}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div> */}
             </div>
 
             <div className="border border-gray-300 rounded-[6px] p-5 bg-[#f8fff3] w-full mt-6 min-h-50">
@@ -1077,6 +940,7 @@ const AddOrder = () => {
                           <h2 className="text-lg font-semibold mb-2 text-gray-800">
                             Special Prices
                           </h2>
+
                           {specialPrices.length > 0 ? (
                             <div className="space-y-3">
                               {specialPrices.map((item) => (
@@ -1085,51 +949,41 @@ const AddOrder = () => {
                                   className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
                                 >
                                   <input
-                                    type="radio"
+                                    type="checkbox"
                                     name="selectedSpecialPrice"
                                     value={item.id}
-                                    checked={selectedSpecialPriceId === item.id}
-                                    onChange={() =>
-                                      setSelectedSpecialPriceId(item.id)
-                                    }
+                                    checked={selectedSpecialPriceIds.includes(item.id)}
+                                    onChange={() => handleSpecialPriceCheckbox(item.id)}
                                     className="mr-3"
                                   />
+
                                   <div className="flex-1">
                                     <p>
-                                      <strong>Variant ID:</strong>{" "}
-                                      {item.variant_id}
-                                    </p>
-                                    <p>
-                                      <strong>Variant Name:</strong>{" "}
-                                      {item.variant_name}
-                                    </p>
-                                    <p>
-                                      <strong>Business Name:</strong>{" "}
-                                      {item.business_name}
+                                      <strong>Variant ID:</strong> {item.id}
                                     </p>
                                     <p>
                                       <strong>Special Price:</strong> £
                                       {item.special_price}
                                     </p>
-                                    <p className="text-xs text-gray-500">
-                                      <strong>Updated:</strong>{" "}
-                                      {item.updated_at}
-                                    </p>
-                                    {selectedSpecialPriceId === item.id && (
+
+                                    {selectedSpecialPriceIds.includes(item.id) && (
                                       <div className="mt-4 p-4 border rounded bg-gray-50">
                                         <div className="flex items-end flex-wrap gap-6">
                                           {/* Meter Range */}
+                                          {item?.uses_meter_range && (
                                           <div className="flex flex-col gap-1">
                                             <label className="text-black font-[500] text-sm">
                                               Meter Range
                                             </label>
                                             <input
                                               type="text"
-                                              value={item.meter_range || ""}
+                                              value={`${item.meter_range_min} - ${item.meter_range_max}`}
                                               readOnly
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
                                             />
                                           </div>
+                                          )}
+
                                           {/* Price */}
                                           <div className="flex flex-col gap-1">
                                             <label className="text-black font-[500] text-sm">
@@ -1137,11 +991,22 @@ const AddOrder = () => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={item.price || ""}
-                                              readOnly
+                                              value={
+                                                editedSpecialPrice[item.id]?.special_price ??
+                                                item.special_price ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "special_price",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
+
                                           {/* Discount */}
                                           <div className="flex flex-col gap-1">
                                             <label className="text-black font-[500] text-sm">
@@ -1149,11 +1014,22 @@ const AddOrder = () => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={item.discount || ""}
-                                              readOnly
+                                              value={
+                                                editedSpecialPrice[item.id]?.variant_discount ??
+                                                item.variant_discount ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "variant_discount",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
+
                                           {/* Quantity */}
                                           <div className="flex flex-col gap-1">
                                             <label className="text-black font-[500] text-sm">
@@ -1161,11 +1037,22 @@ const AddOrder = () => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={item.quantity || ""}
-                                              readOnly
+                                              value={
+                                                editedSpecialPrice[item.id]?.quantity ??
+                                                item.quantity ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "quantity",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
                                               className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
                                             />
                                           </div>
+
                                           {/* Total Price */}
                                           <div className="flex flex-col gap-1">
                                             <label className="text-black font-[500] text-sm">
@@ -1173,7 +1060,11 @@ const AddOrder = () => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={item.total_price || ""}
+                                              value={
+                                                editedSpecialPrice[item.id]?.total_price ??
+                                                item.total_price ??
+                                                ""
+                                              }
                                               readOnly
                                               className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
                                             />
@@ -1383,40 +1274,38 @@ const AddOrder = () => {
                             className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
                           >
                             <input
-                              type="radio"
+                              type="checkbox"
                               name="selectedBusinessSpecialPrice"
                               value={item.id}
-                              checked={
-                                selectedBusinessSpecialPriceId === item.id
-                              }
-                              onChange={() =>
-                                setSelectedBusinessSpecialPriceId(item.id)
-                              }
+                              checked={selectedBusinessSpecialPriceIds.includes(item.id)}
+                              onChange={() => handleBusinessSpecialPriceCheckbox(item.id)}
                               className="mr-3"
                             />
                             <div className="flex-1">
                               <p>
-                                <strong>Variant ID:</strong> {item.variant_id}
+                                <strong>Variant ID:</strong> {item.id}
                               </p>
                               <p>
                                 <strong>Special Price:</strong> £
                                 {item.special_price}
                               </p>
-                              {selectedBusinessSpecialPriceId === item.id && (
+                              {selectedBusinessSpecialPriceIds.includes(item.id) && (
                                 <div className="mt-4 p-4 border rounded bg-gray-50">
                                   <div className="flex items-end flex-wrap gap-6">
                                     {/* Meter Range */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">
-                                        Meter Range
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={item.meter_range || ""}
-                                        readOnly
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
-                                      />
-                                    </div>
+                                    {item?.uses_meter_range && (
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-black font-[500] text-sm">
+                                          Meter Range
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={`${item.meter_range_min} - ${item.meter_range_max}`}
+                                          readOnly
+                                          className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
+                                        />
+                                      </div>
+                                    )}
                                     {/* Price */}
                                     <div className="flex flex-col gap-1">
                                       <label className="text-black font-[500] text-sm">
@@ -1424,8 +1313,18 @@ const AddOrder = () => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={item.price || ""}
-                                        readOnly
+                                        value={
+                                          editedBusinessSpecialPrice[item.id]?.special_price ??
+                                          item.special_price ??
+                                          ""
+                                        }
+                                        onChange={(e) =>
+                                          handleBusinessSpecialPriceChange(
+                                            "special_price",
+                                            e.target.value,
+                                            item
+                                          )
+                                        }
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
                                     </div>
@@ -1436,8 +1335,19 @@ const AddOrder = () => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={item.discount || ""}
-                                        readOnly
+                                        name="discount"
+                                        value={
+                                          editedBusinessSpecialPrice[item.id]?.variant_discount ??
+                                          item.variant_discount ??
+                                          ""
+                                        }
+                                        onChange={(e) =>
+                                          handleBusinessSpecialPriceChange(
+                                            "variant_discount",
+                                            e.target.value,
+                                            item
+                                          )
+                                        }
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
                                     </div>
@@ -1448,8 +1358,19 @@ const AddOrder = () => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={item.quantity || ""}
-                                        readOnly
+                                        name="quantity"
+                                        value={
+                                          editedBusinessSpecialPrice[item.id]?.quantity ??
+                                          item.quantity ??
+                                          ""
+                                        }
+                                        onChange={(e) =>
+                                          handleBusinessSpecialPriceChange(
+                                            "quantity",
+                                            e.target.value,
+                                            item
+                                          )
+                                        }
                                         className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
                                       />
                                     </div>
@@ -1460,7 +1381,11 @@ const AddOrder = () => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={item.total_price || ""}
+                                        value={
+                                          editedBusinessSpecialPrice[item.id]?.total_price ??
+                                          item.total_price ??
+                                          ""
+                                        }
                                         readOnly
                                         className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
                                       />
@@ -1900,9 +1825,7 @@ const AddOrder = () => {
                               ); // capture ID too
                             }}
                           >
-                            <option value="" selected disabled>
-                              Select Product Name
-                            </option>
+                            <option>Select Product Name</option>
                             {productOptions.map((p) => (
                               <option key={p.id} value={p.product_name}>
                                 {p.product_name}
@@ -1928,71 +1851,33 @@ const AddOrder = () => {
                         </div>
                       </div>
 
-                      {/* Right: Variant List */}
-                      {/* {productVariants[index]?.length > 0 && (
-                        <div className="w-2/3">
-                          <p className="text-sm font-semibold mb-2">
-                            Variants:
-                          </p>
-                          <div className="flex gap-3 flex-wrap">
+                      {productVariants[index] &&
+                        productVariants[index].length > 0 && (
+                          <div className="flex gap-2 mt-2">
                             {productVariants[index].map((variant) => (
                               <button
-                                type="button"
                                 key={variant.id}
-                                onClick={() =>
-                                  handleVariantSelect(index, variant)
-                                }
-                                className={`border px-3 py-1 rounded text-sm ${
+                                type="button"
+                                className={`border px-3 rounded text-sm ${
                                   selectedVariant[index]?.id === variant.id
-                                    ? "bg-purple-900 text-white"
-                                    : "bg-gray-100 hover:bg-blue-100"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-100"
                                 }`}
+                                onClick={() =>
+                                  setSelectedVariant((prev) => ({
+                                    ...prev,
+                                    [index]: variant,
+                                  }))
+                                }
                               >
-                                Variant: {variant.color_id}
+                                {variant.color_name ||
+                                  variant.sku ||
+                                  `Variant ${variant.id}`}
                               </button>
+                              
                             ))}
                           </div>
-                        </div>
-                      )} */}
-                      {/* Color Selection if multiple colors available */}
-                      {/* {productVariants[index] &&
-                        productVariants[index].some((v) => v.color_id) && (
-                          <div className="mt-4">
-                            <p className="text-sm font-semibold">
-                              Choose Color:
-                            </p>
-                            <div className="flex gap-2 flex-wrap mt-2">
-                              {[
-                                ...new Set(
-                                  productVariants[index]
-                                    .filter((v) => v.color_id)
-                                    .map((v) => v.color_id)
-                                ),
-                              ].map((colorId) => {
-                                const colorName =
-                                  productVariants[index].find(
-                                    (v) => v.color_id === colorId
-                                  )?.color_name || `Color ${colorId}`;
-                                return (
-                                  <button
-                                    key={colorId}
-                                    type="button"
-                                    onClick={() =>
-                                      handleColorSelect(index, colorId)
-                                    }
-                                    className={`border px-3 py-1 rounded text-sm ${
-                                      selectedColor[index] === colorId
-                                        ? "bg-green-500 text-white"
-                                        : "bg-gray-100 hover:bg-green-100"
-                                    }`}
-                                  >
-                                    {colorName}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )} */}
+                        )}
                     </div>
                     {selectedVariant[index] && (
                       <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
@@ -2016,13 +1901,14 @@ const AddOrder = () => {
                                 {/* Meter Range Section */}
                                 <div className="flex flex-col gap-1">
                                   {/* Selected Range Label */}
-                                  {selection[index]?.meterRangeId != null &&
+                                  {selection[index]?.meter_range_id != null &&
                                     (() => {
                                       const selectedRange = meterOptions[
                                         index
                                       ]?.find(
                                         (o) =>
-                                          o.id === selection[index].meterRangeId
+                                          o.meter_rangeid ===
+                                          selection[index].meter_range_id
                                       );
                                       return (
                                         selectedRange && (
@@ -2031,8 +1917,8 @@ const AddOrder = () => {
                                             <strong>
                                               {selectedRange.range_label}
                                             </strong>{" "}
-                                            ({selectedRange.min_meter}m -{" "}
-                                            {selectedRange.max_meter}m)
+                                            ({selectedRange.min_meters}m -{" "}
+                                            {selectedRange.max_meters}m)
                                           </span>
                                         )
                                       );
@@ -2041,20 +1927,25 @@ const AddOrder = () => {
                                   {/* Dropdown */}
                                   <select
                                     className="bg-white rounded px-2 py-1 w-52 border"
-                                    value={selection[index]?.meterRangeId ?? ""}
+                                    value={
+                                      selection[index]?.meter_range_id ?? ""
+                                    }
                                     onChange={(e) =>
                                       handleSelectionChange(
                                         index,
-                                        "meterRangeId",
+                                        "meter_range_id",
                                         parseInt(e.target.value)
                                       )
                                     }
                                   >
                                     <option value="">Select Range</option>
                                     {meterOptions[index]?.map((opt) => (
-                                      <option key={opt.id} value={opt.id}>
-                                        {opt.range_label} ({opt.min_meter}m -{" "}
-                                        {opt.max_meter}m)
+                                      <option
+                                        key={opt.meter_range_id}
+                                        value={opt.meter_range_id}
+                                      >
+                                        {opt.range_label} ({opt.min_meters}m -{" "}
+                                        {opt.max_meters}m)
                                       </option>
                                     ))}
                                   </select>
@@ -2123,7 +2014,8 @@ const AddOrder = () => {
                                       index
                                     ]?.find(
                                       (o) =>
-                                        o.id === selection[index]?.meterRangeId
+                                        o.id ===
+                                        selection[index]?.meter_range_id
                                     );
 
                                     const minQty = selectedRange
@@ -2229,150 +2121,6 @@ const AddOrder = () => {
                   </div>
                 ))}
 
-                {/* Final Price */}
-                {/* <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Final Price"
-                                  >
-                                    Final Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`final-price-${index}`}
-                                    placeholder="final price"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-32 text-green-700"
-                                    value={selection[index]?.finalPrice || ""}
-                                    readOnly
-                                  />
-                                </div> */}
-
-                {/* <div className="flex flex-col gap-1">
-                                <label className="text-black font-[500] text-sm" htmlFor="Final Price">
-                                  Quantity
-                                </label>
-                              <input
-                                type="number"
-                                className="border border-gray-300 px-2 bg-white py-1 rounded"
-                                placeholder="quantity"
-                                value={formData.items[index].quantity}
-                               onChange={(e) => {
-                                  const quantity = parseInt(e.target.value) || 0;
-                                  const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
-                                  const totalPrice = quantity * finalPrice;
-
-                                  const updatedItems = [...formData.items];
-                                  updatedItems[index].quantity = quantity;
-                                  updatedItems[index].total_price = totalPrice;
-
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    items: updatedItems,
-                                  }));
-                                }}
-
-                                />
-                                </div> */}
-
-                {/* <p className="flex flex-col gap-1">
-                              <strong className="text-sm">Discount:</strong>{" "}
-                              <input
-                                type="number"
-                                placeholder="Enter discount"
-                                value={selectedVariant[index]?.discount || ""}
-                                onChange={(e) =>
-                                  handleVariantFieldChange(
-                                    index,
-                                    "discount_applied",
-                                    e.target.value
-                                  )
-                                }
-                                className="py-1 px-4 border border-gray-400 rounded bg-white"
-                              />
-                            </p> */}
-
-                {/* <p className="font-bold mt-4">Sizes:</p>
-                          <div className="space-y-3">
-                            {selectedVariant[index].inventories.map((inv) => (
-                              <div
-                                key={inv.inventory_id}
-                                className="flex items-center gap-3"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    selectedSizes[index]?.includes(
-                                      inv.size_id
-                                    ) || false
-                                  }
-                                  onChange={() =>
-                                    handleSizeCheckboxToggle(index, inv.size_id)
-                                  }
-                                  className="w-4 h-4 cursor-pointer"
-                                />
-                                <label className="font-medium">
-                                  {inv.size_label}
-                                </label>
-                                <input
-                                  type="number"
-                                  placeholder="Enter Quantity"
-                                  value={
-                                    selectedSizes[index]?.includes(inv.size_id)
-                                      ? quantities[index]?.[inv.size_id] || ""
-                                      : ""
-                                  }
-                                  onChange={(e) =>
-                                    handleQuantityChange(
-                                      index,
-                                      inv.size_id,
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={
-                                    !selectedSizes[index]?.includes(inv.size_id)
-                                  }
-                                  className="py-[5px] px-3 text-sm border border-gray-400 bg-white rounded w-36"
-                                />
-                              </div>
-                            ))}
-                          </div> */}
-
-                {/* <div className="mt-4 p-3 border-1 border-gray-400 rounded bg-white">
-                          <p className="">
-                            <strong className="mr-4">Price:</strong> £
-                            {selectedVariant[index]?.price_per_unit || 0}
-                          </p>
-                          <p className="font-[500]">
-                            <strong className="mr-4">Sizes:</strong>{" "}
-                            {selectedSizes[index]
-                              ?.map((sizeId) => {
-                                const inv = selectedVariant[
-                                  index
-                                ]?.inventories?.find(
-                                  (i) => i.size_id === sizeId
-                                );
-                                const qty = quantities[index]?.[sizeId] || 0;
-                                return `${inv?.size_label}: qty. ${qty}`;
-                              })
-                              .join("  |  ")}
-                          </p>
-                          <p className="font-bold mt-2 text-green-600 border-t-1 border-gray-300 py-1">
-                            <span className="text-black">Total Amount:</span> £
-                            {(() => {
-                              const price = Number(
-                                selectedVariant[index]?.price_per_unit || 0
-                              );
-                              const totalQty = selectedSizes[index]?.reduce(
-                                (sum, sizeId) =>
-                                  sum +
-                                  Number(quantities[index]?.[sizeId] || 0),
-                                0
-                              );
-                              return price * totalQty || 0;
-                            })()}
-                          </p>
-                        </div> */}
-
                 {/* ─── 19) ADD MORE BUTTON BELOW ALL ITEMS ───────────────────────────────── */}
                 <div className="">
                   <button
@@ -2461,327 +2209,3 @@ const AddOrder = () => {
 };
 
 export default AddOrder;
-
-{
-  /* Address Details start*/
-}
-// <div className="border-t-1 border-gray-300 py-10">
-//   <h1 className="text-[20px] font-[500]">Address</h1>
-//   {selectedBusiness && (
-//     <>
-//       <div className="mt-3">
-//         {/* Billing Address */}
-//         <h2 className="mt-5 text-[18px] font-[500]">
-//           Billing Address
-//         </h2>
-//         {selectedBusiness.addresses
-//           ?.filter((addr) => addr.address_type === "billing")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-
-//         {/* Shipping Address */}
-//         <h2 className="mt-10 text-[18px] font-[500]">
-//           Shipping Address
-//         </h2>
-//         {selectedBusiness.addresses
-//           ?.filter((addr) => addr.address_type === "shipping")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-//       </div>
-
-//       <button
-//         type="button"
-//         onClick={handleToggleButton}
-//         className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition mt-5 cursor-pointer"
-//       >
-//         {showAddressSection ? <span>Remove New Address</span> : <span>Add New Address</span> }
-
-//       </button>
-//     </>
-//   )}
-
-//   {selectedCustomer && (
-//     <>
-//       <div className="mt-3">
-//         {/* Billing Address */}
-//         <h2 className="mt-5 text-[18px] font-[500]">
-//           Billing Address
-//         </h2>
-//         {selectedCustomer.addresses
-//           ?.filter((addr) => addr.pivot?.type === "billing")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-
-//         {/* Shipping Address */}
-//         <h2 className="mt-10 text-[18px] font-[500]">
-//           Shipping Address
-//         </h2>
-//         {selectedCustomer.addresses
-//           ?.filter((addr) => addr.pivot?.type === "shipping")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-//       </div>
-
-//
-//       <button
-//         type="button"
-//         onClick={handleToggleButton}
-//         className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition mt-5 cursor-pointer"
-//       >
-//          {showAddressSection ? <span>Remove New Address</span> : <span>Add New Address</span> }
-//       </button>
-//     </>
-//   )}
-// </div>
-
-{
-  /* Address Details ends*/
-}

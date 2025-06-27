@@ -126,7 +126,7 @@ const handleSubmit = async (e) => {
       delete dataToSend.business_details;
     }
 
-    await axios.post("https://britishquilting.fastranking.tech/api/new-customer", dataToSend);
+    await axios.post("https://britishquilting.fastranking.cloud/api/new-customer", dataToSend);
     alert("Form submitted successfully!");
   } catch (err) {
     console.error(err);

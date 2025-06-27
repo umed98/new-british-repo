@@ -37,7 +37,7 @@ const Login = () => {
 
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/login",
+        "https://britishquilting.fastranking.cloud/api/login",
         form
       );
       const { token, user } = response.data;
@@ -47,12 +47,12 @@ const Login = () => {
       storage.setItem("token", token);
       storage.setItem(
         "username",
-        JSON.stringify({ username: user.username, email: user.email })
+        JSON.stringify({ username: user.username, email: user.email, userId: user.id })
       );
 
       navigate("/dashboard");
     } catch (err) {
-      const message = err.response?.data?.message || "Login failed. Try again.";
+      const message = err.response?.data?.message || "Username or Password is incorrect.";
       setFieldErrors({ general: message });
     }
   };
@@ -91,7 +91,7 @@ const Login = () => {
               } border border-[#C0C0C0] rounded-[10px] focus:outline-none focus:ring-1 focus:ring-[#4B215F]`}
             />
 
-            {/* <p className="text-red-500 text-sm mt-1">user error</p> */}
+            <p className="text-red-500 text-sm mt-1">{fieldErrors.username}</p>
           </div>
 
           <div className="flex flex-col gap-1 relative">
@@ -115,10 +115,11 @@ const Login = () => {
             >
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </div>
-            {/* <p className="text-red-500 text-sm mt-1"> Password error </p> */}
+            <p className="text-red-500 text-sm mt-1"> {fieldErrors.password } </p>
+             <span className="text-red-500">{fieldErrors.general}</span>
           </div>
           {/* <p className="text-red-500 text-sm text-center">error</p> */}
-          <span className="text-red-500 py-3">{fieldErrors.general}</span>
+         
 
           <div className="flex justify-between items-center mb-10">
             <div>

@@ -14,7 +14,7 @@ const CustomerInfo = () => {
 
   useEffect(() => {
     axios
-      .get(`https://britishquilting.fastranking.tech/api/customer/${id}`)
+      .get(`https://britishquilting.fastranking.cloud/api/customer/${id}`)
       .then((response) => {
         setCustomer(response.data.data.customer);
         setSpecialPrice(response.data.data.special_prices);

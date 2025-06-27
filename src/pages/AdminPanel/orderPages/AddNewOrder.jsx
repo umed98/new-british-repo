@@ -56,7 +56,7 @@ const AddNewOrder = () => {
 
     if (selectedType === "Business") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/business")
+        .get("https://britishquilting.fastranking.cloud/api/business")
         .then((res) => {
           if (res.data.status) {
             setBusiness(res.data.data);
@@ -65,7 +65,7 @@ const AddNewOrder = () => {
         .catch((err) => console.error(err));
     } else if (selectedType === "Customer") {
       axios
-        .get("https://britishquilting.fastranking.tech/api/customers")
+        .get("https://britishquilting.fastranking.cloud/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -104,7 +104,7 @@ const AddNewOrder = () => {
 
     axios
       .post(
-        "https://britishquilting.fastranking.tech/api/save-new-order",
+        "https://britishquilting.fastranking.cloud/api/save-new-order",
         formData
       )
       .then((res) => {

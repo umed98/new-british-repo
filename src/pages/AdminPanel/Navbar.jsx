@@ -1,32 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { asset } from "../../assets/asset";
-import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../context/AuthContext";
+
 
 const Navbar = () => {
-  const [profile, setProfile] = useState(false);
-  const [username, setUsername] = useState("");
 
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const loggedInUser = sessionStorage.getItem("username") || localStorage.getItem("username");
-    if(loggedInUser){
-      const user = JSON.parse(loggedInUser);
-      setUsername(user);
-      console.log(user.email)
-    }
- 
-  },[]);
-
-  const handleDropdown = () => {
-    setProfile((prev) => !prev);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("username") || sessionStorage.removeItem("username");
-    localStorage.removeItem("token") || sessionStorage.removeItem("token");
-    navigate("/");
-  }
+const { profile, username, handleLogout, handleDropdown } = useAuthContext();
 
   return (
     <div className="z-40 sticky top-0 w-full h-[100%] bg-white px-8 xl:px-10 py-4 border-b-1 border-gray-300 flex justify-between items-center">

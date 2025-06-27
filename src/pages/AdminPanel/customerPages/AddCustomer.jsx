@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../../context/AuthContext";
 
 const AddCustomer = () => {
   const navigate = useNavigate();
   const [notHasBusiness, setNotHasBusiness] = useState(false);
 
+  const { username } = useAuthContext();
+
   const [formData, setFormData] = useState({
+    created_by: "",
     customer_details: {
       title: "",
       first_name: "",
@@ -40,7 +44,7 @@ const AddCustomer = () => {
       ],
     },
 
-    special_pricing: [
+    customer_special_pricing: [
       {
         product_id: null,
         apply_to_all: false,
@@ -106,22 +110,22 @@ const AddCustomer = () => {
   const [productVariants, setProductVariants] = useState({});
   const [editVariants, setEditVariants] = useState({});
   const [showVariants, setShowVariants] = useState(
-    formData.special_pricing.map(() => false)
+    formData.customer_special_pricing.map(() => false)
   );
 
   useEffect(() => {
     setShowVariants((prev) => {
-      const newLength = formData.special_pricing.length;
+      const newLength = formData.customer_special_pricing.length;
       if (prev.length !== newLength) {
         return [...prev, ...Array(newLength - prev.length).fill(false)];
       }
       return prev;
     });
-  }, [formData.special_pricing.length]);
+  }, [formData.customer_special_pricing.length]);
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/products")
+      .get("https://britishquilting.fastranking.cloud/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -146,7 +150,7 @@ const AddCustomer = () => {
   };
 
 const handleProductChange = async (index, field, value) => {
-  const updatedProducts = [...formData.special_pricing];
+  const updatedProducts = [...formData.customer_special_pricing];
   updatedProducts[index][field] = value;
 
   if (field === "product_name") {
@@ -159,7 +163,7 @@ const handleProductChange = async (index, field, value) => {
 
       try {
         const response = await axios.get(
-          `https://britishquilting.fastranking.tech/api/product/${selectedProduct.id}/variants`
+          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
         );
         if (response.data.success) {
           setProductVariants((prev) => ({
@@ -180,15 +184,15 @@ const handleProductChange = async (index, field, value) => {
 
   setFormData((prev) => ({
     ...prev,
-    special_pricing: updatedProducts,
+    customer_special_pricing: updatedProducts,
   }));
 };
 
   const handleAddProduct = () => {
     setFormData((prev) => ({
       ...prev,
-      special_pricing: [
-        ...prev.special_pricing,
+      customer_special_pricing: [
+        ...prev.customer_special_pricing,
         {
           product_id: null,
           apply_to_all: false,
@@ -204,7 +208,7 @@ const handleProductChange = async (index, field, value) => {
   };
 
   const handleRemoveProduct = (index) => {
-    const updatedProducts = [...formData.special_pricing];
+    const updatedProducts = [...formData.customer_special_pricing];
     updatedProducts.splice(index, 1);
 
     const updatedShowVariants = [...showVariants];
@@ -212,14 +216,14 @@ const handleProductChange = async (index, field, value) => {
 
     setFormData((prev) => ({
       ...prev,
-      special_pricing: updatedProducts,
+      customer_special_pricing: updatedProducts,
     }));
     setShowVariants(updatedShowVariants);
   };
 
 const handleVariantChange = (productIndex, variantIndex, field, value) => {
   setFormData(prev => {
-    const updatedSpecialPricing = [...prev.special_pricing];
+    const updatedSpecialPricing = [...prev.customer_special_pricing];
     const variants = [...(updatedSpecialPricing[productIndex].variants || [])];
 
     const existingVariant = variants[variantIndex] || {};
@@ -236,7 +240,7 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
 
     return {
       ...prev,
-      special_pricing: updatedSpecialPricing,
+      customer_special_pricing: updatedSpecialPricing,
     };
   });
 };
@@ -335,8 +339,8 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
 
     const dataToSend = { ...formData };
 
-    // Transform special_pricing
-    dataToSend.special_pricing = formData.special_pricing.map((product, index) => {
+    // Transform customer_special_pricing
+    dataToSend.customer_special_pricing = formData.customer_special_pricing.map((product, index) => {
       const base = {
         product_id: product.product_id,
         apply_to_all: !showVariants[index], // true if checkbox is checked
@@ -429,7 +433,7 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
 
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/new-customer",
+        "https://britishquilting.fastranking.cloud/api/new-customer",
         dataToSend
       );
 
@@ -1459,7 +1463,7 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
               </div>
 
               <div className="flex flex-col gap-4 mt-6 rounded-lg mb-4 border-1 border-[#C5C5C5] p-4">
-                {formData.special_pricing.map((product, index) => (
+                {formData.customer_special_pricing.map((product, index) => (
                 
                     <div
                       key={index}
@@ -1634,7 +1638,7 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
                               <div className="flex flex-col items-end gap-2 w-full ">
                                 <p className="mb-2 text-sm w-3/4">
                                   <strong>Product Name:</strong>{" "}
-                                  {formData.special_pricing[index]
+                                  {formData.customer_special_pricing[index]
                                     ?.product_name || "N/A"}
                                 </p>
                                 <div className="flex flex-col w-3/4 gap-4">

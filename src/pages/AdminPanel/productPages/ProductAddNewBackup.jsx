@@ -153,7 +153,7 @@ export default function Uploadpro() {
 
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/upload-product",
+        "https://britishquilting.fastranking.cloud/api/upload-product",
         formData,
         {
           headers: {
@@ -174,7 +174,7 @@ export default function Uploadpro() {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/brands")
+      .get("https://britishquilting.fastranking.cloud/api/brands")
       .then((response) => {
         if (response.data.status) {
           setBrands(response.data.data);
@@ -192,7 +192,7 @@ export default function Uploadpro() {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/category")
+      .get("https://britishquilting.fastranking.cloud/api/category")
       .then((response) => {
         if (response.data.status) {
           setCategories(response.data.data);
@@ -210,7 +210,7 @@ export default function Uploadpro() {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/colors")
+      .get("https://britishquilting.fastranking.cloud/api/colors")
       .then((response) => {
         if (response.data.status) {
           setColors(response.data.data);
@@ -228,7 +228,7 @@ export default function Uploadpro() {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/sizes")
+      .get("https://britishquilting.fastranking.cloud/api/sizes")
       .then((response) => {
         if (response.data.status) {
           setSizes(response.data.data);

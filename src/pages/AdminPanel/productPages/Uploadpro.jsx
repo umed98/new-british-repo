@@ -133,7 +133,7 @@ export default function Uploadpro() {
 
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/upload-product",
+        "https://britishquilting.fastranking.cloud/api/upload-product",
         formData,
         {
           headers: {

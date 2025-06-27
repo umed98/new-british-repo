@@ -21,7 +21,7 @@ const OrderDisplay = () => {
     const getData = async () => {
       try {
         const api = await axios.get(
-          "https://britishquilting.fastranking.tech/api/orders"
+          "https://britishquilting.fastranking.cloud/api/orders"
         );
         console.log("Fetched data:", api.data.orders);
         setData(api.data.orders);
@@ -59,7 +59,7 @@ const OrderDisplay = () => {
   const sortedData = useMemo(() => {
     let sortableData = [...data];
 
-    console.log("this is ", sortableData)
+    // console.log("this is ", sortableData)
 
     if (searchTerm) {
       sortableData = sortableData.filter((item) =>
@@ -136,7 +136,7 @@ const OrderDisplay = () => {
   // const handleStatusUpdate = async (orderId, newStatus) => {
   //   try {
   //     const response = await axios.put(
-  //       `https://britishquilting.fastranking.tech/api/orders/${orderId}/status`,
+  //       `https://britishquilting.fastranking.cloud/api/orders/${orderId}/status`,
   //       { status: newStatus }
   //     );
 
@@ -158,7 +158,7 @@ const OrderDisplay = () => {
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
       const response = await axios.put(
-        `https://britishquilting.fastranking.tech/api/orders/${orderId}/status`,
+        `https://britishquilting.fastranking.cloud/api/orders/${orderId}/status`,
         { status: newStatus }
       );
 

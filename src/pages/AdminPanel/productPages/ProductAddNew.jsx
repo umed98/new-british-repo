@@ -223,7 +223,7 @@ const addVariant = () => {
 
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/upload-product",
+        "https://britishquilting.fastranking.cloud/api/upload-product",
         formData,
         {
           headers: {
@@ -244,7 +244,7 @@ const addVariant = () => {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/brands")
+      .get("https://britishquilting.fastranking.cloud/api/brands")
       .then((response) => {
         if (response.data.status) {
           setBrands(response.data.data);
@@ -265,7 +265,7 @@ const addVariant = () => {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/category-new")
+      .get("https://britishquilting.fastranking.cloud/api/category-new")
       .then((response) => {
         if (response.data.status) {
           setCategories(response.data.data); // data is already in tree format
@@ -311,7 +311,7 @@ const addVariant = () => {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/colors")
+      .get("https://britishquilting.fastranking.cloud/api/colors")
       .then((response) => {
         if (response.data.status) {
           setColors(response.data.data);
@@ -329,7 +329,7 @@ const addVariant = () => {
 
   useEffect(() => {
     axios
-      .get("https://britishquilting.fastranking.tech/api/sizes")
+      .get("https://britishquilting.fastranking.cloud/api/sizes")
       .then((response) => {
         if (response.data.status) {
           setSizes(response.data.data);
