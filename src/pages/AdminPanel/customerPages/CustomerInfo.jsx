@@ -278,7 +278,7 @@ const CustomerInfo = () => {
       </div>
       <button
   onClick={handleAddOrder}
-  className="mt-6 px-6 py-3 bg-violet-700 hover:bg-violet-800 text-white rounded-[8px] font-semibold"
+  className="mt-6 px-6 py-3 bg-violet-700 hover:bg-violet-800 text-white rounded-[8px] font-semibold cursor-pointer"
 >
   Add New Order
 </button>

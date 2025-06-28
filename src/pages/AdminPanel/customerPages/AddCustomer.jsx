@@ -112,6 +112,10 @@ const AddCustomer = () => {
   const [showVariants, setShowVariants] = useState(
     formData.customer_special_pricing.map(() => false)
   );
+  const [meterOptions, setMeterOptions] = useState({});
+  const [selectedMeterRanges, setSelectedMeterRanges] = useState({});
+  const [meterRangeSpecialPrices, setMeterRangeSpecialPrices] = useState({});
+  const [meterRanges, setMeterRanges] = useState([]);
 
   useEffect(() => {
     setShowVariants((prev) => {
@@ -134,6 +138,18 @@ const AddCustomer = () => {
       .catch((err) => console.error("API error:", err));
   }, []);
 
+  useEffect(() => {
+    axios
+      .get("https://britishquilting.fastranking.cloud/api/meter-ranges")
+      .then((res) => {
+        if (res.data.status && Array.isArray(res.data.data)) {
+          setMeterRanges(res.data.data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch meter ranges", err);
+      });
+  }, []);
 
   const handleEditToggle = (productIndex, variantIndex) => {
     setEditVariants((prev) => ({
@@ -149,44 +165,126 @@ const AddCustomer = () => {
     setShowVariants((prev) => prev.map((val, i) => (i === index ? !val : val)));
   };
 
-const handleProductChange = async (index, field, value) => {
-  const updatedProducts = [...formData.customer_special_pricing];
-  updatedProducts[index][field] = value;
+  const handleMeterRangeToggle = (productIndex, variantId, meterRangeId) => {
+    console.log("Meter range toggle:", {
+      productIndex,
+      variantId,
+      meterRangeId,
+    });
+    setSelectedMeterRanges((prev) => {
+      const newState = {
+        ...prev,
+        [productIndex]: {
+          ...prev[productIndex],
+          [variantId]: {
+            ...prev[productIndex]?.[variantId],
+            [meterRangeId]: !prev[productIndex]?.[variantId]?.[meterRangeId],
+          },
+        },
+      };
+      console.log("New selectedMeterRanges state:", newState);
+      return newState;
+    });
+  };
 
-  if (field === "product_name") {
-    const selectedProduct = productOptions.find(
-      (p) => p.product_name === value
-    );
+  const handleMeterRangeSpecialPriceChange = (
+    productIndex,
+    variantId,
+    meterRangeId,
+    value
+  ) => {
+    console.log("Meter range special price change:", {
+      productIndex,
+      variantId,
+      meterRangeId,
+      value,
+    });
+    setMeterRangeSpecialPrices((prev) => {
+      const newState = {
+        ...prev,
+        [productIndex]: {
+          ...prev[productIndex],
+          [variantId]: {
+            ...prev[productIndex]?.[variantId],
+            [meterRangeId]: value,
+          },
+        },
+      };
+      console.log("New meterRangeSpecialPrices state:", newState);
+      return newState;
+    });
+  };
 
-    if (selectedProduct) {
-      updatedProducts[index].product_id = selectedProduct.id;
+  const handleProductChange = async (index, field, value) => {
+    const updatedProducts = [...formData.customer_special_pricing];
+    updatedProducts[index][field] = value;
 
-      try {
-        const response = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
-        );
-        if (response.data.success) {
-          setProductVariants((prev) => ({
-            ...prev,
-            [index]: response.data.variants,
-          }));
+    if (field === "product_name") {
+      const selectedProduct = productOptions.find(
+        (p) => p.product_name === value
+      );
 
-          updatedProducts[index].variants = response.data.product.variants.map((variant) => ({
-            id: variant.id,
-            special_price: "",
-          }));
+      if (selectedProduct) {
+        updatedProducts[index].product_id = selectedProduct.id;
+
+        try {
+          const response = await axios.get(
+            `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
+          );
+          if (response.data.success) {
+            const variants = response.data.variants || [];
+            setProductVariants((prev) => ({
+              ...prev,
+              [index]: variants,
+            }));
+
+            // Initialize meter options for each variant
+            const meterOptionsForProduct = {};
+            variants.forEach((variant) => {
+              if (variant.use_meter_pricing && variant.meter_pricing) {
+                meterOptionsForProduct[variant.id] = variant.meter_pricing;
+              }
+            });
+
+            console.log("Meter options for product:", meterOptionsForProduct);
+            console.log(
+              "Variants with meter pricing:",
+              variants.filter((v) => v.use_meter_pricing)
+            );
+
+            setMeterOptions((prev) => ({
+              ...prev,
+              [index]: meterOptionsForProduct,
+            }));
+
+            // Initialize selected meter ranges and special prices
+            setSelectedMeterRanges((prev) => ({
+              ...prev,
+              [index]: {},
+            }));
+
+            setMeterRangeSpecialPrices((prev) => ({
+              ...prev,
+              [index]: {},
+            }));
+
+            updatedProducts[index].variants = variants.map((variant) => ({
+              id: variant.id,
+              special_price: "",
+              meter_range_id: null,
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching variants:", error);
         }
-      } catch (error) {
-        console.error("Error fetching variants:", error);
       }
     }
-  }
 
-  setFormData((prev) => ({
-    ...prev,
-    customer_special_pricing: updatedProducts,
-  }));
-};
+    setFormData((prev) => ({
+      ...prev,
+      customer_special_pricing: updatedProducts,
+    }));
+  };
 
   const handleAddProduct = () => {
     setFormData((prev) => ({
@@ -221,32 +319,33 @@ const handleProductChange = async (index, field, value) => {
     setShowVariants(updatedShowVariants);
   };
 
-const handleVariantChange = (productIndex, variantIndex, field, value) => {
-  setFormData(prev => {
-    const updatedSpecialPricing = [...prev.customer_special_pricing];
-    const variants = [...(updatedSpecialPricing[productIndex].variants || [])];
+  const handleVariantChange = (productIndex, variantIndex, field, value) => {
+    setFormData((prev) => {
+      const updatedSpecialPricing = [...prev.customer_special_pricing];
+      const variants = [
+        ...(updatedSpecialPricing[productIndex].variants || []),
+      ];
 
-    const existingVariant = variants[variantIndex] || {};
-    variants[variantIndex] = {
-      ...existingVariant,
-      [field]: value,
-      id: existingVariant.id, // Ensure the `variant_id` is kept in state
-    };
+      const existingVariant = variants[variantIndex] || {};
+      variants[variantIndex] = {
+        ...existingVariant,
+        [field]: value,
+        id: existingVariant.id, // Ensure the `variant_id` is kept in state
+      };
 
-    updatedSpecialPricing[productIndex] = {
-      ...updatedSpecialPricing[productIndex],
-      variants,
-    };
+      updatedSpecialPricing[productIndex] = {
+        ...updatedSpecialPricing[productIndex],
+        variants,
+      };
 
-    return {
-      ...prev,
-      customer_special_pricing: updatedSpecialPricing,
-    };
-  });
-};
+      return {
+        ...prev,
+        customer_special_pricing: updatedSpecialPricing,
+      };
+    });
+  };
 
-
-// ------------------------------------------------------------------------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------------------------------------------------------
 
   const handleInputChange = (section, field, value) => {
     setFormData((prev) => ({
@@ -337,42 +436,101 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const dataToSend = { ...formData };
+    const dataToSend = {
+      created_by: username.userId, // Set to 1 or get from context/state
+      customer_details: formData.customer_details,
+      business_details: formData.business_details,
+      payment_details: formData.payment_details,
+    };
 
     // Transform customer_special_pricing
-    dataToSend.customer_special_pricing = formData.customer_special_pricing.map((product, index) => {
-      const base = {
-        product_id: product.product_id,
-        apply_to_all: !showVariants[index], // true if checkbox is checked
-      };
-
-      if (!showVariants[index]) {
-        // Apply to all: include one special_price field
-        return {
-          ...base,
-          special_price: product.special_price,
+    dataToSend.customer_special_pricing = formData.customer_special_pricing.map(
+      (product, index) => {
+        const base = {
+          product_id: product.product_id,
+          apply_to_all: !showVariants[index], // true if checkbox is checked
         };
-      } else {
-        // Apply to selected variants
-        return {
-          ...base,
-          variants: product.variants
-  .map((v, variantIndex) => {
-    if (editVariants?.[index]?.[variantIndex]) {
-      return {
-        id: v.id,
-        special_price: v.special_price,
-      };
-    }
-    return null;
-  })
-  .filter(Boolean), // remove unchecked/null entries
 
-        };
+        if (!showVariants[index]) {
+          // Apply to all: include one special_price field
+          return {
+            ...base,
+            special_price: product.special_price,
+          };
+        } else {
+          // Apply to selected variants
+          const variants = [];
+
+          // Check if there are any meter range selections for this product
+          const hasMeterRangeSelections =
+            selectedMeterRanges[index] &&
+            Object.keys(selectedMeterRanges[index]).length > 0;
+
+          console.log(
+            `Product ${index} has meter range selections:`,
+            hasMeterRangeSelections
+          );
+          console.log(
+            `Product ${index} selectedMeterRanges:`,
+            selectedMeterRanges[index]
+          );
+
+          product.variants.forEach((v, variantIndex) => {
+            // Include variant if it's edited OR if it has meter range selections
+            const isEdited = editVariants?.[index]?.[variantIndex];
+            const hasMeterRanges =
+              selectedMeterRanges[index]?.[v.id] &&
+              Object.keys(selectedMeterRanges[index][v.id]).some(
+                (rangeId) => selectedMeterRanges[index][v.id][rangeId]
+              );
+
+            if (isEdited || hasMeterRanges) {
+              // Add meter range data if available - push a variant for each selected meter range
+              if (selectedMeterRanges[index]?.[v.id]) {
+                const selectedRanges = Object.keys(
+                  selectedMeterRanges[index][v.id]
+                ).filter(
+                  (rangeId) => selectedMeterRanges[index][v.id][rangeId]
+                );
+                if (selectedRanges.length > 0) {
+                  selectedRanges.forEach((rangeId) => {
+                    const specialPrice =
+                      meterRangeSpecialPrices[index]?.[v.id]?.[rangeId];
+                    if (specialPrice) {
+                      variants.push({
+                        id: v.id,
+                        meter_range_id: parseInt(rangeId),
+                        special_price: parseFloat(specialPrice),
+                      });
+                    }
+                  });
+                  return; // skip pushing the non-meter variant
+                }
+              }
+              // Non-meter-pricing or no meter ranges selected
+              variants.push({
+                id: v.id,
+                special_price: v.special_price || "",
+              });
+            }
+          });
+
+          console.log(`Product ${index} final variants:`, variants);
+          console.log(
+            `Product ${index} meterRangeSpecialPrices:`,
+            meterRangeSpecialPrices[index]
+          );
+
+          return {
+            ...base,
+            variants: variants,
+          };
+        }
       }
-    });
+    );
 
-
+    // Add business_special_pricing (empty for now, can be implemented later)
+    dataToSend.business_special_pricing = [];
 
     if (
       !dataToSend.payment_details.selected_methods ||
@@ -431,9 +589,11 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
       return;
     }
 
+    console.log("Final payload:", JSON.stringify(dataToSend, null, 2));
+
     try {
       const response = await axios.post(
-        "https://britishquilting.fastranking.cloud/api/new-customer",
+        "https://britishquilting.fastranking.cloud/api/new-customer-latest",
         dataToSend
       );
 
@@ -458,8 +618,6 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
       alert(`Submission failed: ${errorMessage}`);
     }
   };
-
-
 
   return (
     <div className="w-full pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -1462,279 +1620,360 @@ const handleVariantChange = (productIndex, variantIndex, field, value) => {
                 ></textarea>
               </div>
 
-              <div className="flex flex-col gap-4 mt-6 rounded-lg mb-4 border-1 border-[#C5C5C5] p-4">
+              <div className="flex flex-col gap-4 mt-6 rounded-lg mb-4 border-1 border-[#C5C5C5] p-4 bg-gray-50">
                 {formData.customer_special_pricing.map((product, index) => (
-                
-                    <div
-                      key={index}
-                      className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6  p-4 border-1 border-[#d3d3d3] relative"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <label
-                          className="text-sm font-[500]"
-                          htmlFor={`product_name_${index}`}
+                  <div
+                    key={index}
+                    className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6  p-4 border-1 border-[#d3d3d3] relative bg-white"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <label
+                        className="text-sm font-[500]"
+                        htmlFor={`product_name_${index}`}
+                      >
+                        Special Price Offer
+                      </label>
+                      <div className="relative">
+                        <select
+                          className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
+                          name="product_name"
+                          id={`product_name_${index}`}
+                          value={product.product_name}
+                          onChange={(e) =>
+                            handleProductChange(
+                              index,
+                              "product_name",
+                              e.target.value
+                            )
+                          }
                         >
-                          Special Price Offer
-                        </label>
-                        <div className="relative">
-                          <select
-                            className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
-                            name="product_name"
-                            id={`product_name_${index}`}
-                            value={product.product_name}
-                            onChange={(e) =>
-                              handleProductChange(
-                                index,
-                                "product_name",
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value="" selected disabled>
-                              Select Product Name
+                          <option value="" selected disabled>
+                            Select Product Name
+                          </option>
+                          {productOptions.map((p) => (
+                            <option key={p.id} value={p.product_name}>
+                              {p.product_name}
                             </option>
-                            {productOptions.map((p) => (
-                              <option key={p.id} value={p.product_name}>
-                                {p.product_name}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 top-0 flex items-center px-3 text-gray-500">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </div>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 top-0 flex items-center px-3 text-gray-500">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Optional remove button */}
-                      {index !== 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProduct(index)}
-                          className="absolute top-1 right-3 text-red-500 hover:text-red-700 text-2xl font-bold cursor-pointer"
-                        >
-                          x
-                        </button>
-                      )}
+                    {/* Optional remove button */}
+                    {index !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProduct(index)}
+                        className="absolute top-1 right-3 text-red-500 hover:text-red-700 text-2xl font-bold cursor-pointer"
+                      >
+                        x
+                      </button>
+                    )}
 
-                      {productVariants[index] && (
-                        <div className="col-span-4 mt-4 py-4 px-6 border border-gray-200 rounded-lg bg-gray-50">
-                          <div className="grid grid-cols-4 gap-5">
-                            <div className="flex items-center gap-2 mb-3">
-                              <input
-                                type="checkbox"
-                                name="apply_to_all"
-                                id={`all_checkbox_${index}`}
-                                checked={!showVariants[index]} // Checked = "All"
-                                onChange={() => handleToggleVariants(index)}
-                              />
-                              <label
-                                htmlFor={`all_checkbox_${index}`}
-                                className="text-sm font-medium"
-                              >
-                                Applies To All Varients
-                              </label>
-                            </div>
-                            {(() => {
-                              const selected = productOptions.find(
-                                (p) => p.product_name === product.product_name
-                              );
-
-                              return (
-                                !showVariants[index] &&
-                                selected && (
-                                  <>
-                                    <div className="flex flex-col gap-2">
-                                      <label
-                                        className="text-sm font-[500]"
-                                        htmlFor={`price_${index}`}
-                                      >
-                                        Price
-                                      </label>
-                                      <input
-                                        type="text"
-                                        name="price"
-                                        id={`price_${index}`}
-                                        value={selected.base_price}
-                                        onChange={(e) =>
-                                          handleProductChange(
-                                            index,
-                                            "base_price",
-                                            e.target.value
-                                          )
-                                        }
-                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
-                                      />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                      <label
-                                        className="text-sm font-[500]"
-                                        htmlFor={`discount_${index}`}
-                                      >
-                                        Discount
-                                      </label>
-                                      <input
-                                        type="text"
-                                        name="discount"
-                                        id={`discount_${index}`}
-                                        value={selected.base_discount}
-                                        onChange={(e) =>
-                                          handleProductChange(
-                                            index,
-                                            "discount",
-                                            e.target.value
-                                          )
-                                        }
-                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
-                                      />
-                                    </div>
-
-                                    <div className="flex flex-col gap-2">
-                                      <label
-                                        className="text-sm font-[500]"
-                                        htmlFor={`special_price_${index}`}
-                                      >
-                                        Special Price
-                                      </label>
-                                      <input
-                                        type="number"
-                                        name="special_price"
-                                        id={`special_price_${index}`}
-                                        placeholder="Enter special price"
-                                        value={product.special_price || ""}
-                                        onChange={(e) =>
-                                          handleProductChange(
-                                            index,
-                                            "special_price",
-                                            e.target.value
-                                          )
-                                        }
-                                        className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
-                                      />
-                                    </div>
-                                  </>
-                                )
-                              );
-                            })()}
+                    {productVariants[index] && (
+                      <div className="col-span-4 mt-4 py-4 px-6 border border-gray-200 rounded-lg bg-gray-50">
+                        <div className="grid grid-cols-4 gap-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <input
+                              type="checkbox"
+                              name="apply_to_all"
+                              id={`all_checkbox_${index}`}
+                              checked={!showVariants[index]} // Checked = "All"
+                              onChange={() => handleToggleVariants(index)}
+                            />
+                            <label
+                              htmlFor={`all_checkbox_${index}`}
+                              className="text-sm font-medium"
+                            >
+                              Applies To All Varients
+                            </label>
                           </div>
-                          {/* Show variants only if "All" is unchecked */}
-                          {showVariants[index] && (
-                            <>
-                              <h3 className="text-md font-semibold mb-2">
-                                Available Variants:
-                              </h3>
+                          {(() => {
+                            const selected = productOptions.find(
+                              (p) => p.product_name === product.product_name
+                            );
 
-                              <div className="flex flex-col items-end gap-2 w-full ">
-                                <p className="mb-2 text-sm w-3/4">
-                                  <strong>Product Name:</strong>{" "}
-                                  {formData.customer_special_pricing[index]
-                                    ?.product_name || "N/A"}
-                                </p>
-                                <div className="flex flex-col w-3/4 gap-4">
-                                  {productVariants[index]?.map(
-                                    (variant, variantIndex) => (
-                                      <div className="flex items-start gap-3 w-full">
-                                        <label className="flex items-center gap-2 text-sm font-medium">
-                                          <input
-                                            type="checkbox"
-                                            checked={
-                                              editVariants?.[index]?.[
-                                                variantIndex
-                                              ] || false
-                                            }
-                                            onChange={() =>
-                                              handleEditToggle(
-                                                index,
-                                                variantIndex
-                                              )
-                                            }
-                                          />
-                                          Edit
-                                        </label>
-                                        <div
-                                          key={variant.id}
-                                          className="flex flex-col w-full justify-center border border-gray-300 shadow-sm rounded-lg p-3 bg-white"
-                                        >
-                                          {/* Header row with details and edit toggle */}
-                                          <div className="flex justify-between items-center mb-2">
-                                            <div className="flex gap-10">
-                                              <p>
-                                                <strong>Price:</strong> £
-                                                {variant.price}
-                                              </p>
-                                              <p>
-                                                <strong>Discount:</strong> £
-                                                {variant.discount}
-                                              </p>
+                            return (
+                              !showVariants[index] &&
+                              selected && (
+                                <>
+                                  <div className="flex flex-col gap-2">
+                                    <label
+                                      className="text-sm font-[500]"
+                                      htmlFor={`price_${index}`}
+                                    >
+                                      Price
+                                    </label>
+                                    <input
+                                      type="text"
+                                      name="price"
+                                      id={`price_${index}`}
+                                      value={selected.base_price}
+                                      onChange={(e) =>
+                                        handleProductChange(
+                                          index,
+                                          "base_price",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-2">
+                                    <label
+                                      className="text-sm font-[500]"
+                                      htmlFor={`discount_${index}`}
+                                    >
+                                      Discount
+                                    </label>
+                                    <input
+                                      type="text"
+                                      name="discount"
+                                      id={`discount_${index}`}
+                                      value={selected.base_discount}
+                                      onChange={(e) =>
+                                        handleProductChange(
+                                          index,
+                                          "discount",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-2">
+                                    <label
+                                      className="text-sm font-[500]"
+                                      htmlFor={`special_price_${index}`}
+                                    >
+                                      Special Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      name="special_price"
+                                      id={`special_price_${index}`}
+                                      placeholder="Enter special price"
+                                      value={product.special_price || ""}
+                                      onChange={(e) =>
+                                        handleProductChange(
+                                          index,
+                                          "special_price",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="py-2 px-4 border-1 bg-white border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full"
+                                    />
+                                  </div>
+                                </>
+                              )
+                            );
+                          })()}
+                        </div>
+                        {/* Show variants only if "All" is unchecked */}
+                        {showVariants[index] && (
+                          <>
+                            <h3 className="text-md font-semibold mb-2">
+                              Available Variants:
+                            </h3>
+
+                            <div className="flex flex-col items-end gap-2 w-full ">
+                              <p className="mb-2 text-sm w-3/4">
+                                <strong>Product Name:</strong>{" "}
+                                {formData.customer_special_pricing[index]
+                                  ?.product_name || "N/A"}
+                              </p>
+                              <div className="flex flex-col w-3/4 gap-4">
+                                {productVariants[index]?.map(
+                                  (variant, variantIndex) => (
+                                    <div className="flex items-start gap-3 w-full">
+                                      <label className="flex items-center gap-2 text-sm font-medium">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            editVariants?.[index]?.[
+                                              variantIndex
+                                            ] || false
+                                          }
+                                          onChange={() =>
+                                            handleEditToggle(
+                                              index,
+                                              variantIndex
+                                            )
+                                          }
+                                        />
+                                        Edit
+                                      </label>
+                                      <div
+                                        key={variant.id}
+                                        className="flex flex-col w-full justify-center border border-gray-300 shadow-sm rounded-lg p-3 bg-white"
+                                      >
+                                        {/* Header row with details and edit toggle */}
+                                        <div className="flex justify-between items-center mb-2">
+                                          <div className="flex gap-10">
+                                            <p>
+                                              <strong>Price:</strong> £
+                                              {variant.price}
+                                            </p>
+                                            <p>
+                                              <strong>Discount:</strong> £
+                                              {variant.discount}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {/* Editable fields OR static view */}
+                                        {editVariants?.[index]?.[
+                                          variantIndex
+                                        ] ? (
+                                          <div className="grid grid-cols-3 border-t-1 border-gray-300 mt-2 pt-1 gap-5">
+                                            <div className="flex flex-col gap-1 font-[600]">
+                                              <label>Price</label>
+                                              <input
+                                                type="text"
+                                                value={variant.price}
+                                                className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                              />
+                                            </div>
+                                            <div className="flex flex-col gap-1 font-[600]">
+                                              <label>Discount</label>
+                                              <input
+                                                type="text"
+                                                value={variant.discount}
+                                                className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                              />
+                                            </div>
+                                            <div className="flex flex-col gap-1 font-[600]">
+                                              <label>Special Price</label>
+                                              <input
+                                                type="number"
+                                                name="special_price"
+                                                value={variant.special_price}
+                                                onChange={(e) =>
+                                                  handleVariantChange(
+                                                    index,
+                                                    variantIndex,
+                                                    "special_price",
+                                                    e.target.value
+                                                  )
+                                                }
+                                                placeholder="Enter special price"
+                                                className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
+                                              />
                                             </div>
                                           </div>
+                                        ) : null}
 
-                                          {/* Editable fields OR static view */}
-                                          {editVariants?.[index]?.[
-                                            variantIndex
-                                          ] ? (
-                                            <div className="grid grid-cols-3 border-t-1 border-gray-300 mt-2 pt-1 gap-5">
-                                              <div className="flex flex-col gap-1 font-[600]">
-                                                <label>Price</label>
-                                                <input
-                                                  type="text"
-                                                  value={variant.price}
-                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
-                                                />
-                                              </div>
-                                              <div className="flex flex-col gap-1 font-[600]">
-                                                <label>Discount</label>
-                                                <input
-                                                  type="text"
-                                                  value={variant.discount}
-                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
-                                                />
-                                              </div>
-                                              <div className="flex flex-col gap-1 font-[600]">
-                                                <label>Special Price</label>
-                                                <input
-                                                  type="number"
-                                                  name="special_price"
-                                                  value={
-                                                    variant.special_price 
-                                                  }
-                                                  onChange={(e) =>
-                                                    handleVariantChange(
-                                                      index,
-                                                      variantIndex,
-                                                      "special_price",
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                  placeholder="Enter special price"
-                                                  className="border border-gray-300 py-2 font-[400] px-4 rounded-[6px]"
-                                                />
+                                        {/* Meter Range Section */}
+                                        {editVariants[index]?.[variantIndex] &&
+                                          meterRanges.length > 0 && (
+                                            <div className="border-t-1 border-gray-300 mt-3 pt-3">
+                                              <h4 className="text-sm font-semibold mb-2">
+                                                Meter Ranges:
+                                              </h4>
+                                              <div className="grid grid-cols-1 gap-3">
+                                                {meterRanges.map(
+                                                  (meterRange) => (
+                                                    <div
+                                                      key={meterRange.id}
+                                                      className="flex items-center gap-3 p-2 border border-gray-200 rounded"
+                                                    >
+                                                      <label className="flex items-center gap-2 text-sm">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={
+                                                            selectedMeterRanges[
+                                                              index
+                                                            ]?.[variant.id]?.[
+                                                              meterRange.id
+                                                            ] || false
+                                                          }
+                                                          onChange={() =>
+                                                            handleMeterRangeToggle(
+                                                              index,
+                                                              variant.id,
+                                                              meterRange.id
+                                                            )
+                                                          }
+                                                        />
+                                                        <span>
+                                                          {
+                                                            meterRange.min_meters
+                                                          }
+                                                          m -{" "}
+                                                          {
+                                                            meterRange.max_meters
+                                                          }
+                                                          m (Price: £
+                                                          {meterRange.price},
+                                                          Discount: £
+                                                          {meterRange.discount})
+                                                        </span>
+                                                      </label>
+
+                                                      {selectedMeterRanges[
+                                                        index
+                                                      ]?.[variant.id]?.[
+                                                        meterRange.id
+                                                      ] && (
+                                                        <div className="flex items-center gap-2 ml-4">
+                                                          <label className="text-sm font-medium">
+                                                            Special Price:
+                                                          </label>
+                                                          <input
+                                                            type="number"
+                                                            value={
+                                                              meterRangeSpecialPrices[
+                                                                index
+                                                              ]?.[variant.id]?.[
+                                                                meterRange.id
+                                                              ] || ""
+                                                            }
+                                                            onChange={(e) =>
+                                                              handleMeterRangeSpecialPriceChange(
+                                                                index,
+                                                                variant.id,
+                                                                meterRange.id,
+                                                                e.target.value
+                                                              )
+                                                            }
+                                                            placeholder="Enter special price"
+                                                            className="border border-gray-300 py-1 px-2 rounded text-sm w-32"
+                                                          />
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )
+                                                )}
                                               </div>
                                             </div>
-                                          ) : null}
-                                        </div>
+                                          )}
                                       </div>
-                                    )
-                                  )}
-                                </div>
+                                    </div>
+                                  )
+                                )}
                               </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
               <button
