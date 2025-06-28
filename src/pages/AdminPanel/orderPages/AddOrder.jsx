@@ -538,6 +538,22 @@ const AddOrder = () => {
     };
   };
 
+  // ─── 15.9) HELPER FUNCTION FOR INDIVIDUAL PRODUCT CALCULATIONS ─────────────────
+  const calculateIndividualProductTotals = (index) => {
+    const item = formData.items[index];
+    const total_price = parseFloat(item.total_price ?? 0);
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(((total_price * vat_percentage) / 100).toFixed(2));
+    const delivery_amount = 0;
+    const payable_amount = parseFloat((total_price + vat_amount + delivery_amount).toFixed(2));
+    
+    return {
+      total_price,
+      vat_amount,
+      payable_amount
+    };
+  };
+
   /*Meter Selection dropdown----------------------------------------------------------------- */
 
   const handleSelectionChange = (index, field, value) => {
@@ -2388,6 +2404,14 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             ];
                                             updatedItems[index].quantity =
                                               input;
+                                            
+                                            // Calculate total price in real-time
+                                            const quantity = parseInt(input) || 0;
+                                            const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
+                                            const totalPrice = quantity * finalPrice;
+                                            
+                                            updatedItems[index].total_price = totalPrice;
+                                            
                                             // Use unified calculation
                                             updateOrderTotals(updatedItems);
                                           }
@@ -2464,7 +2488,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={formData?.order?.productDetailsVatAmount ?? 0}
+                                    value={calculateIndividualProductTotals(index).vat_amount}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2488,7 +2512,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={formData?.order?.productDetailsPayableAmount ?? 0}
+                                    value={calculateIndividualProductTotals(index).payable_amount}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
