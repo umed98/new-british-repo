@@ -136,25 +136,32 @@ const AddOrder = () => {
 
           setSelectedVariant((prev) => ({
             ...prev,
-
             [index]: defaultVariant,
           }));
 
-          const defaultMeterOptions = defaultVariant.meter_pricing || [];
-          console.log(defaultMeterOptions);
+          // Check if variant uses meter pricing
+          const useMeterPricing = defaultVariant.use_meter_pricing || false;
+          const defaultMeterOptions = useMeterPricing ? (defaultVariant.meter_pricing || []) : [];
+          console.log("Meter options:", defaultMeterOptions);
+          console.log("Use meter pricing:", useMeterPricing);
 
           setMeterOptions((prev) => ({
             ...prev,
             [index]: defaultMeterOptions,
           }));
 
+          // Initialize selection based on whether meter pricing is used
+          const defaultPrice = useMeterPricing ? "" : (defaultVariant.price || "");
+          const defaultDiscount = useMeterPricing ? "" : (defaultVariant.discount || "");
+          const defaultFinalPrice = useMeterPricing ? "" : (parseFloat(defaultVariant.price || 0) - parseFloat(defaultVariant.discount || 0)).toFixed(2);
+
           setSelection((prev) => ({
             ...prev,
             [index]: {
-              meter_range_id: "",
-              price: "",
-              discount: "",
-              finalPrice: "",
+              meter_range_id: useMeterPricing ? "" : null,
+              price: defaultPrice,
+              discount: defaultDiscount,
+              finalPrice: defaultFinalPrice,
             },
           }));
 
@@ -162,10 +169,10 @@ const AddOrder = () => {
             ...updatedItems[index],
             product_id: selectedProduct.id,
             variant_id: defaultVariant?.id || "",
-            price_per_unit: "",
-            discount_applied: "",
-            meter_range_id: "",
-            total_price: "",
+            price_per_unit: defaultPrice,
+            discount_applied: defaultDiscount,
+            meter_range_id: useMeterPricing ? "" : null,
+            total_price: defaultFinalPrice,
           };
         }
       } catch (err) {
@@ -2220,8 +2227,18 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                               <div className="flex items-end flex-wrap gap-6">
                                 {/* Meter Range Section */}
                                 <div className="flex flex-col gap-1">
+                                  {/* Show message when no meter options available */}
+                                  {/* {(!meterOptions[index] || meterOptions[index].length === 0) && (
+                                    <span className="text-sm text-gray-500 min-w-[200px]">
+                                      {selectedVariant[index]?.use_meter_pricing === false 
+                                        ? "" 
+                                        : ""}
+                                    </span>
+                                  )} */}
+
                                   {/* Selected Range Label */}
                                   {selection[index]?.meter_range_id != null &&
+                                    meterOptions[index]?.length > 0 &&
                                     (() => {
                                       const selectedRange = meterOptions[
                                         index
@@ -2244,31 +2261,33 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                       );
                                     })()}
 
-                                  {/* Dropdown */}
-                                  <select
-                                    className="bg-white rounded px-2 py-1 w-52 border"
-                                    value={
-                                      selection[index]?.meter_range_id ?? ""
-                                    }
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "meter_range_id",
-                                        parseInt(e.target.value)
-                                      )
-                                    }
-                                  >
-                                    <option value="">Select Range</option>
-                                    {meterOptions[index]?.map((opt) => (
-                                      <option
-                                        key={opt.meter_range_id}
-                                        value={opt.meter_range_id}
-                                      >
-                                        {opt.range_label} ({opt.min_meters}m -{" "}
-                                        {opt.max_meters}m)
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {/* Dropdown - Only show if meter options exist */}
+                                  {meterOptions[index] && meterOptions[index].length > 0 && (
+                                    <select
+                                      className="bg-white rounded px-2 py-1 w-52 border"
+                                      value={
+                                        selection[index]?.meter_range_id ?? ""
+                                      }
+                                      onChange={(e) =>
+                                        handleSelectionChange(
+                                          index,
+                                          "meter_range_id",
+                                          parseInt(e.target.value)
+                                        )
+                                      }
+                                    >
+                                      <option value="">Select Range</option>
+                                      {meterOptions[index]?.map((opt) => (
+                                        <option
+                                          key={opt.meter_range_id}
+                                          value={opt.meter_range_id}
+                                        >
+                                          {opt.range_label} ({opt.min_meters}m -{" "}
+                                          {opt.max_meters}m)
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
                                 </div>
 
                                 {/* Price */}
@@ -2336,11 +2355,12 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                         selection[index]?.meter_range_id
                                     );
 
+                                    // If no meter options or no range selected, allow any quantity
                                     const minQty = selectedRange
                                       ? Math.ceil(
                                           parseFloat(selectedRange.min_meter)
                                         )
-                                      : 0;
+                                      : 1; // Default minimum of 1
                                     const maxQty = selectedRange
                                       ? Math.floor(
                                           parseFloat(selectedRange.max_meter)
