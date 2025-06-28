@@ -491,6 +491,46 @@ const AddOrder = () => {
     }));
   }, [selectedVariant, selectedSizes, quantities]);
 
+  // ─── 15.5) UNIFIED CALCULATION TRIGGER ───────────────────────────────────────
+  useEffect(() => {
+    // Trigger unified calculation when special prices or form items change
+    updateOrderTotals();
+  }, [selectedSpecialPriceIds, selectedBusinessSpecialPriceIds, specialPrices, specialBusinessPrices]);
+
+  // ─── 15.6) ADDITIONAL CALCULATION TRIGGERS ───────────────────────────────────
+  useEffect(() => {
+    // Trigger calculation when edited special prices change
+    if (Object.keys(editedSpecialPrice).length > 0 || Object.keys(editedBusinessSpecialPrice).length > 0) {
+      updateOrderTotals();
+    }
+  }, [editedSpecialPrice, editedBusinessSpecialPrice]);
+
+  // ─── 15.7) INITIAL CALCULATION TRIGGER ───────────────────────────────────────
+  useEffect(() => {
+    // Trigger initial calculation when component mounts or when special prices are loaded
+    if (specialPrices.length > 0 || specialBusinessPrices.length > 0) {
+      updateOrderTotals();
+    }
+  }, [specialPrices, specialBusinessPrices]);
+
+  // ─── 15.8) HELPER FUNCTIONS FOR INDIVIDUAL CALCULATIONS ───────────────────────
+  const calculateIndividualSpecialPriceTotals = (item, editedData = {}) => {
+    const special_price = parseFloat(editedData.special_price ?? item.special_price ?? 0);
+    const quantity = parseFloat(editedData.quantity ?? item.quantity ?? 0);
+    const discount = parseFloat(editedData.variant_discount ?? item.variant_discount ?? 0);
+    const total_price = quantity * (special_price - discount);
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(((total_price * vat_percentage) / 100).toFixed(2));
+    const delivery_amount = 0;
+    const payable_amount = parseFloat((total_price + vat_amount + delivery_amount).toFixed(2));
+    
+    return {
+      total_price,
+      vat_amount,
+      payable_amount
+    };
+  };
+
   /*Meter Selection dropdown----------------------------------------------------------------- */
 
   const handleSelectionChange = (index, field, value) => {
@@ -526,65 +566,193 @@ const AddOrder = () => {
       [index]: updatedSelection,
     }));
 
-    setFormData((prev) => ({
-      ...prev,
-      items: updatedItems,
-    }));
+    // Use unified calculation instead of just updating formData
+    updateOrderTotals(updatedItems);
   };
+
+// Function To Calculate total 
+const updateOrderTotals = (updatedItems = null) => {
+  // Get all items to calculate totals from
+  let allItems = [];
+  
+  // Add regular form items
+  if (updatedItems) {
+    allItems = [...updatedItems];
+  } else {
+    allItems = [...formData.items];
+  }
+  
+  // Calculate individual section totals
+  const productDetailsTotal = allItems.reduce(
+    (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+    0
+  );
+
+  let customerSpecialPricesTotal = 0;
+  let businessSpecialPricesTotal = 0;
+  
+  // Add selected customer special prices
+  if (selectedSpecialPriceIds.length > 0) {
+    selectedSpecialPriceIds.forEach((id) => {
+      const item = specialPrices.find((sp) => sp.id === id);
+      const edited = editedSpecialPrice[id] || {};
+      if (item) {
+        const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+        const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+        const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+        const total_price = quantity * (special_price - discount);
+        customerSpecialPricesTotal += total_price;
+        allItems.push({
+          price_per_unit: special_price,
+          quantity: quantity,
+          discount_applied: discount,
+          total_price: total_price,
+        });
+      }
+    });
+  }
+  
+  // Add selected business special prices
+  if (selectedBusinessSpecialPriceIds.length > 0) {
+    selectedBusinessSpecialPriceIds.forEach((id) => {
+      const item = specialBusinessPrices.find((sp) => sp.id === id);
+      const edited = editedBusinessSpecialPrice[id] || {};
+      if (item) {
+        const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+        const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+        const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
+        const total_price = quantity * (special_price - discount);
+        businessSpecialPricesTotal += total_price;
+        allItems.push({
+          price_per_unit: special_price,
+          quantity: quantity,
+          discount_applied: discount,
+          total_price: total_price,
+        });
+      }
+    });
+  }
+
+  // Combined total for payload
+  const total_amount = allItems.reduce(
+    (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+    0
+  );
+  const vat_percentage = 20;
+  const vat_amount = parseFloat(((total_amount * vat_percentage) / 100).toFixed(2));
+  const delivery_amount = 0;
+  const payable_amount = parseFloat((total_amount + vat_amount + delivery_amount).toFixed(2));
+  const grossAmount = allItems.reduce(
+    (sum, itm) => sum + (parseFloat(itm.price_per_unit ?? 0) * parseFloat(itm.quantity ?? 0)),
+    0
+  );
+  const order_discount_amount = parseFloat((grossAmount - total_amount).toFixed(2));
+
+  // Calculate individual section totals for display
+  const productDetailsVatAmount = parseFloat(((productDetailsTotal * vat_percentage) / 100).toFixed(2));
+  const productDetailsPayableAmount = parseFloat((productDetailsTotal + productDetailsVatAmount + delivery_amount).toFixed(2));
+  
+  const customerSpecialPricesVatAmount = parseFloat(((customerSpecialPricesTotal * vat_percentage) / 100).toFixed(2));
+  const customerSpecialPricesPayableAmount = parseFloat((customerSpecialPricesTotal + customerSpecialPricesVatAmount + delivery_amount).toFixed(2));
+  
+  const businessSpecialPricesVatAmount = parseFloat(((businessSpecialPricesTotal * vat_percentage) / 100).toFixed(2));
+  const businessSpecialPricesPayableAmount = parseFloat((businessSpecialPricesTotal + businessSpecialPricesVatAmount + delivery_amount).toFixed(2));
+
+  setFormData((prev) => ({
+    ...prev,
+    order: {
+      ...prev.order,
+      // Combined totals for payload
+      total_amount,
+      vat_percentage,
+      vat_amount,
+      delivery_amount,
+      payable_amount,
+      order_discount_amount,
+      // Individual section totals for display
+      productDetailsTotal,
+      productDetailsVatAmount,
+      productDetailsPayableAmount,
+      customerSpecialPricesTotal,
+      customerSpecialPricesVatAmount,
+      customerSpecialPricesPayableAmount,
+      businessSpecialPricesTotal,
+      businessSpecialPricesVatAmount,
+      businessSpecialPricesPayableAmount,
+    },
+    ...(updatedItems && { items: updatedItems }),
+  }));
+};
+
 
   // ─── 16) FORM SUBMISSION ─────────────────────────────────────────────────────
-  const handleSpecialPriceChange = (field, value, item) => {
-    setEditedSpecialPrice((prev) => {
-      const updated = {
-        ...prev[item.id],
-        [field]: value,
-      };
-      const special_price = parseFloat(
-        updated.special_price ?? item.special_price ?? 0
-      );
-      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(
-        updated.variant_discount ?? item.variant_discount ?? 0
-      );
-      const total_price = (quantity * (special_price - discount)).toFixed(2);
-      return {
-        ...prev,
-        [item.id]: { ...updated, total_price },
-      };
-    });
-  };
+const handleSpecialPriceChange = (field, value, item) => {
+  setEditedSpecialPrice((prev) => {
+    const updated = {
+      ...prev[item.id],
+      [field]: value,
+    };
 
-  const handleBusinessSpecialPriceChange = (field, value, item) => {
-    setEditedBusinessSpecialPrice((prev) => {
-      const updated = {
-        ...prev[item.id],
-        [field]: value,
-      };
-      const special_price = parseFloat(
-        updated.special_price ?? item.special_price ?? 0
-      );
-      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(
-        updated.variant_discount ?? item.variant_discount ?? 0
-      );
-      const total_price = (quantity * (special_price - discount)).toFixed(2);
-      return {
-        ...prev,
-        [item.id]: { ...updated, total_price },
-      };
-    });
-  };
+    const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+    const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+    const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+    const total_price = parseFloat((quantity * (special_price - discount)).toFixed(2));
+
+    const newState = {
+      ...prev,
+      [item.id]: { ...updated, total_price },
+    };
+
+    // Call unified calculation function
+    updateOrderTotals();
+
+    return newState;
+  });
+};
+
+
+const handleBusinessSpecialPriceChange = (field, value, item) => {
+  setEditedBusinessSpecialPrice((prev) => {
+    const updated = {
+      ...prev[item.id],
+      [field]: value,
+    };
+
+    const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
+    const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+    const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+
+    const total_price = parseFloat((quantity * (special_price - discount)).toFixed(2));
+
+    const newState = {
+      ...prev,
+      [item.id]: { ...updated, total_price },
+    };
+
+    // Call unified calculation function
+    updateOrderTotals();
+
+    return newState;
+  });
+};
+
 
   const handleSpecialPriceCheckbox = (id) => {
-    setSelectedSpecialPriceIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
+    setSelectedSpecialPriceIds((prev) => {
+      const newIds = prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id];
+      return newIds;
+    });
+    // Trigger calculation immediately after state update
+    setTimeout(() => updateOrderTotals(), 100);
   };
 
   const handleBusinessSpecialPriceCheckbox = (id) => {
-    setSelectedBusinessSpecialPriceIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
+    setSelectedBusinessSpecialPriceIds((prev) => {
+      const newIds = prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id];
+      return newIds;
+    });
+    // Trigger calculation immediately after state update
+    setTimeout(() => updateOrderTotals(), 100);
   };
 
   const handleSubmit = (e) => {
@@ -698,40 +866,23 @@ const AddOrder = () => {
     }
 
     // ─── Compute Grand Total ────────────────────────────────
-
-    const total_amount = transformedOrderItems.reduce(
-      (sum, itm) => sum + itm.total_price,
-      0
-    );
-
-    const vat_percentage = 20; // 20%
-    const vat_amount = parseFloat(
-      ((total_amount * vat_percentage) / 100).toFixed(2)
-    );
-    const delivery_amount = 0;
-
-    const payable_amount = parseFloat(
-      (total_amount + vat_amount + delivery_amount).toFixed(2)
-    );
-
-    const grossAmount = transformedOrderItems.reduce(
-      (sum, itm) => sum + itm.price_per_unit * itm.quantity,
-      0
-    );
-    const order_discount_amount = parseFloat(
-      (grossAmount - total_amount).toFixed(2)
-    );
+    // Use values from formData.order that are calculated by updateOrderTotals
 
     const finalPayload = {
       ...updatedFormData,
       order: {
-        ...updatedFormData.order,
-        total_amount,
-        vat_percentage,
-        vat_amount,
-        delivery_amount,
-        payable_amount,
-        order_discount_amount,
+        order_date: updatedFormData.order.order_date,
+        status: updatedFormData.order.status,
+        total_amount: formData.order.total_amount,
+        order_discount_amount: formData.order.order_discount_amount,
+        vat_percentage: formData.order.vat_percentage,
+        vat_amount: formData.order.vat_amount,
+        delivery_amount: formData.order.delivery_amount,
+        payable_amount: formData.order.payable_amount,
+        payment_method: updatedFormData.order.payment_method,
+        payment_status: updatedFormData.order.payment_status,
+        source: updatedFormData.order.source,
+        source_reference: updatedFormData.order.source_reference,
       },
       items: transformedOrderItems,
     };
@@ -854,20 +1005,7 @@ const AddOrder = () => {
   };
 
   // Add these derived values at the top of the component (after state):
-  const totalAmount = formData.items.reduce((sum, item) => {
-    const price = parseFloat(item.price_per_unit || 0);
-    const discount = parseFloat(item.discount_applied || 0);
-    const quantity = parseFloat(item.quantity || 0);
-    return sum + (price - discount) * quantity;
-  }, 0);
-  const vatPercentage = 20;
-  const vatAmount = parseFloat(
-    ((totalAmount * vatPercentage) / 100).toFixed(2)
-  );
-  const deliveryAmount = 0; // You can make this editable if needed
-  const payableAmount = parseFloat(
-    (totalAmount + vatAmount + deliveryAmount).toFixed(2)
-  );
+  // Removed old derived values - now using unified calculation in updateOrderTotals()
 
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -1127,7 +1265,7 @@ const AddOrder = () => {
                                                   item
                                                 )
                                               }
-                                              className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                              className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                             />
                                           </div>
 
@@ -1146,6 +1284,53 @@ const AddOrder = () => {
                                               }
                                               readOnly
                                               className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                            />
+                                          </div>            
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              VAT %
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={formData?.order?.vat_percentage ?? 0}
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              VAT Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={calculateIndividualSpecialPriceTotals(item, editedSpecialPrice[item.id]).vat_amount}
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              Delivery Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={formData?.order?.delivery_amount ?? 0}
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              Payable Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={calculateIndividualSpecialPriceTotals(item, editedSpecialPrice[item.id]).payable_amount}
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
                                         </div>
@@ -1459,7 +1644,7 @@ const AddOrder = () => {
                                             item
                                           )
                                         }
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                       />
                                     </div>
                                     {/* Total Price */}
@@ -1477,6 +1662,53 @@ const AddOrder = () => {
                                         }
                                         readOnly
                                         className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium mb-1">
+                                        VAT %
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={formData?.order?.vat_percentage ?? 0}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium mb-1">
+                                        VAT Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={calculateIndividualSpecialPriceTotals(item, editedBusinessSpecialPrice[item.id]).vat_amount}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium mb-1">
+                                        Delivery Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={formData?.order?.delivery_amount ?? 0}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium mb-1">
+                                        Payable Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={calculateIndividualSpecialPriceTotals(item, editedBusinessSpecialPrice[item.id]).payable_amount}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
                                     </div>
                                   </div>
@@ -2087,28 +2319,6 @@ const AddOrder = () => {
                                   />
                                 </div>
 
-                                {/* Total Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Total Price"
-                                  >
-                                    Total Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="total price"
-                                    readOnly
-                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                    value={
-                                      formData.items[index].total_price !==
-                                      undefined
-                                        ? formData.items[index].total_price
-                                        : ""
-                                    }
-                                  />
-                                </div>
-
                                 {/* Quantity Input - Bound to selected range */}
                                 <div className="flex flex-col gap-1">
                                   <label
@@ -2158,10 +2368,8 @@ const AddOrder = () => {
                                             ];
                                             updatedItems[index].quantity =
                                               input;
-                                            setFormData((prev) => ({
-                                              ...prev,
-                                              items: updatedItems,
-                                            }));
+                                            // Use unified calculation
+                                            updateOrderTotals(updatedItems);
                                           }
                                         }}
                                         onBlur={(e) => {
@@ -2189,14 +2397,34 @@ const AddOrder = () => {
                                           updatedItems[index].total_price =
                                             totalPrice;
 
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            items: updatedItems,
-                                          }));
+                                          // Use unified calculation
+                                          updateOrderTotals(updatedItems);
                                         }}
                                       />
                                     );
                                   })()}
+                                </div>
+
+                                {/* Total Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Total Price"
+                                  >
+                                    Total Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="total price"
+                                    readOnly
+                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                    value={
+                                      formData.items[index].total_price !==
+                                      undefined
+                                        ? formData.items[index].total_price
+                                        : ""
+                                    }
+                                  />
                                 </div>
 
                                 <div>
@@ -2205,7 +2433,7 @@ const AddOrder = () => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={vatPercentage}
+                                    value={formData?.order?.vat_percentage ?? 0}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2216,7 +2444,7 @@ const AddOrder = () => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={vatAmount}
+                                    value={formData?.order?.productDetailsVatAmount ?? 0}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2228,7 +2456,7 @@ const AddOrder = () => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={deliveryAmount}
+                                    value={formData?.order?.delivery_amount ?? 0}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2240,7 +2468,7 @@ const AddOrder = () => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={payableAmount}
+                                    value={formData?.order?.productDetailsPayableAmount ?? 0}
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />

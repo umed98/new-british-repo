@@ -7,6 +7,7 @@ const Navbar = () => {
 
 const { profile, username, handleLogout, handleDropdown } = useAuthContext();
 
+
   return (
     <div className="z-40 sticky top-0 w-full h-[100%] bg-white px-8 xl:px-10 py-4 border-b-1 border-gray-300 flex justify-between items-center">
       <div>

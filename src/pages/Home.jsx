@@ -6,10 +6,10 @@ const Home = () => {
   useEffect(() => {
     const storage =
       localStorage.getItem("username") || sessionStorage.getItem("username");
-    console.log(storage);
+    // console.log(storage);
     if (storage) {
       const user = JSON.parse(storage);
-      console.log(user.username);
+      // console.log(user.username);
       setName(user.username);
     }
   }, []);
