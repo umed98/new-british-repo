@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
     if(loggedInUser){
       const user = JSON.parse(loggedInUser);
       setUsername(user);
-      // console.log(user.email)
+      console.log(user.email)
     }
  
   },[]);
