@@ -141,7 +141,9 @@ const AddOrder = () => {
 
           // Check if variant uses meter pricing
           const useMeterPricing = defaultVariant.use_meter_pricing || false;
-          const defaultMeterOptions = useMeterPricing ? (defaultVariant.meter_pricing || []) : [];
+          const defaultMeterOptions = useMeterPricing
+            ? defaultVariant.meter_pricing || []
+            : [];
           console.log("Meter options:", defaultMeterOptions);
           console.log("Use meter pricing:", useMeterPricing);
 
@@ -151,9 +153,18 @@ const AddOrder = () => {
           }));
 
           // Initialize selection based on whether meter pricing is used
-          const defaultPrice = useMeterPricing ? "" : (defaultVariant.price || "");
-          const defaultDiscount = useMeterPricing ? "" : (defaultVariant.discount || "");
-          const defaultFinalPrice = useMeterPricing ? "" : (parseFloat(defaultVariant.price || 0) - parseFloat(defaultVariant.discount || 0)).toFixed(2);
+          const defaultPrice = useMeterPricing
+            ? ""
+            : defaultVariant.price || "";
+          const defaultDiscount = useMeterPricing
+            ? ""
+            : defaultVariant.discount || "";
+          const defaultFinalPrice = useMeterPricing
+            ? ""
+            : (
+                parseFloat(defaultVariant.price || 0) -
+                parseFloat(defaultVariant.discount || 0)
+              ).toFixed(2);
 
           setSelection((prev) => ({
             ...prev,
@@ -502,12 +513,20 @@ const AddOrder = () => {
   useEffect(() => {
     // Trigger unified calculation when special prices or form items change
     updateOrderTotals();
-  }, [selectedSpecialPriceIds, selectedBusinessSpecialPriceIds, specialPrices, specialBusinessPrices]);
+  }, [
+    selectedSpecialPriceIds,
+    selectedBusinessSpecialPriceIds,
+    specialPrices,
+    specialBusinessPrices,
+  ]);
 
   // ─── 15.6) ADDITIONAL CALCULATION TRIGGERS ───────────────────────────────────
   useEffect(() => {
     // Trigger calculation when edited special prices change
-    if (Object.keys(editedSpecialPrice).length > 0 || Object.keys(editedBusinessSpecialPrice).length > 0) {
+    if (
+      Object.keys(editedSpecialPrice).length > 0 ||
+      Object.keys(editedBusinessSpecialPrice).length > 0
+    ) {
       updateOrderTotals();
     }
   }, [editedSpecialPrice, editedBusinessSpecialPrice]);
@@ -522,19 +541,27 @@ const AddOrder = () => {
 
   // ─── 15.8) HELPER FUNCTIONS FOR INDIVIDUAL CALCULATIONS ───────────────────────
   const calculateIndividualSpecialPriceTotals = (item, editedData = {}) => {
-    const special_price = parseFloat(editedData.special_price ?? item.special_price ?? 0);
+    const special_price = parseFloat(
+      editedData.special_price ?? item.special_price ?? 0
+    );
     const quantity = parseFloat(editedData.quantity ?? item.quantity ?? 0);
-    const discount = parseFloat(editedData.variant_discount ?? item.variant_discount ?? 0);
+    const discount = parseFloat(
+      editedData.variant_discount ?? item.variant_discount ?? 0
+    );
     const total_price = quantity * (special_price - discount);
     const vat_percentage = 20;
-    const vat_amount = parseFloat(((total_price * vat_percentage) / 100).toFixed(2));
+    const vat_amount = parseFloat(
+      ((total_price * vat_percentage) / 100).toFixed(2)
+    );
     const delivery_amount = 0;
-    const payable_amount = parseFloat((total_price + vat_amount + delivery_amount).toFixed(2));
-    
+    const payable_amount = parseFloat(
+      (total_price + vat_amount + delivery_amount).toFixed(2)
+    );
+
     return {
       total_price,
       vat_amount,
-      payable_amount
+      payable_amount,
     };
   };
 
@@ -543,16 +570,27 @@ const AddOrder = () => {
     const item = formData.items[index];
     const total_price = parseFloat(item.total_price ?? 0);
     const vat_percentage = 20;
-    const vat_amount = parseFloat(((total_price * vat_percentage) / 100).toFixed(2));
+    const vat_amount = parseFloat(
+      ((total_price * vat_percentage) / 100).toFixed(2)
+    );
     const delivery_amount = 0;
-    const payable_amount = parseFloat((total_price + vat_amount + delivery_amount).toFixed(2));
-    
+    const payable_amount = parseFloat(
+      (total_price + vat_amount + delivery_amount).toFixed(2)
+    );
+
     return {
       total_price,
       vat_amount,
-      payable_amount
+      payable_amount,
     };
   };
+
+  // Product search Select Dropdown Options
+  const productOptionsFormatted = productOptions.map((p) => ({
+    label: p.product_name,
+    value: p.product_name,
+    id: p.id,
+  }));
 
   /*Meter Selection dropdown----------------------------------------------------------------- */
 
@@ -593,176 +631,225 @@ const AddOrder = () => {
     updateOrderTotals(updatedItems);
   };
 
-// Function To Calculate total 
-const updateOrderTotals = (updatedItems = null) => {
-  // Get all items to calculate totals from
-  let allItems = [];
-  
-  // Add regular form items
-  if (updatedItems) {
-    allItems = [...updatedItems];
-  } else {
-    allItems = [...formData.items];
-  }
-  
-  // Calculate individual section totals
-  const productDetailsTotal = allItems.reduce(
-    (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
-    0
-  );
+  // Function To Calculate total
+  const updateOrderTotals = (updatedItems = null) => {
+    // Get all items to calculate totals from
+    let allItems = [];
 
-  let customerSpecialPricesTotal = 0;
-  let businessSpecialPricesTotal = 0;
-  
-  // Add selected customer special prices
-  if (selectedSpecialPriceIds.length > 0) {
-    selectedSpecialPriceIds.forEach((id) => {
-      const item = specialPrices.find((sp) => sp.id === id);
-      const edited = editedSpecialPrice[id] || {};
-      if (item) {
-        const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
-        const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-        const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-        const total_price = quantity * (special_price - discount);
-        customerSpecialPricesTotal += total_price;
-        allItems.push({
-          price_per_unit: special_price,
-          quantity: quantity,
-          discount_applied: discount,
-          total_price: total_price,
-        });
-      }
-    });
-  }
-  
-  // Add selected business special prices
-  if (selectedBusinessSpecialPriceIds.length > 0) {
-    selectedBusinessSpecialPriceIds.forEach((id) => {
-      const item = specialBusinessPrices.find((sp) => sp.id === id);
-      const edited = editedBusinessSpecialPrice[id] || {};
-      if (item) {
-        const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
-        const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-        const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-        const total_price = quantity * (special_price - discount);
-        businessSpecialPricesTotal += total_price;
-        allItems.push({
-          price_per_unit: special_price,
-          quantity: quantity,
-          discount_applied: discount,
-          total_price: total_price,
-        });
-      }
-    });
-  }
+    // Add regular form items
+    if (updatedItems) {
+      allItems = [...updatedItems];
+    } else {
+      allItems = [...formData.items];
+    }
 
-  // Combined total for payload
-  const total_amount = allItems.reduce(
-    (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
-    0
-  );
-  const vat_percentage = 20;
-  const vat_amount = parseFloat(((total_amount * vat_percentage) / 100).toFixed(2));
-  const delivery_amount = 0;
-  const payable_amount = parseFloat((total_amount + vat_amount + delivery_amount).toFixed(2));
-  const grossAmount = allItems.reduce(
-    (sum, itm) => sum + (parseFloat(itm.price_per_unit ?? 0) * parseFloat(itm.quantity ?? 0)),
-    0
-  );
-  const order_discount_amount = parseFloat((grossAmount - total_amount).toFixed(2));
+    // Calculate individual section totals
+    const productDetailsTotal = allItems.reduce(
+      (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+      0
+    );
 
-  // Calculate individual section totals for display
-  const productDetailsVatAmount = parseFloat(((productDetailsTotal * vat_percentage) / 100).toFixed(2));
-  const productDetailsPayableAmount = parseFloat((productDetailsTotal + productDetailsVatAmount + delivery_amount).toFixed(2));
-  
-  const customerSpecialPricesVatAmount = parseFloat(((customerSpecialPricesTotal * vat_percentage) / 100).toFixed(2));
-  const customerSpecialPricesPayableAmount = parseFloat((customerSpecialPricesTotal + customerSpecialPricesVatAmount + delivery_amount).toFixed(2));
-  
-  const businessSpecialPricesVatAmount = parseFloat(((businessSpecialPricesTotal * vat_percentage) / 100).toFixed(2));
-  const businessSpecialPricesPayableAmount = parseFloat((businessSpecialPricesTotal + businessSpecialPricesVatAmount + delivery_amount).toFixed(2));
+    let customerSpecialPricesTotal = 0;
+    let businessSpecialPricesTotal = 0;
 
-  setFormData((prev) => ({
-    ...prev,
-    order: {
-      ...prev.order,
-      // Combined totals for payload
-      total_amount,
-      vat_percentage,
-      vat_amount,
-      delivery_amount,
-      payable_amount,
-      order_discount_amount,
-      // Individual section totals for display
-      productDetailsTotal,
-      productDetailsVatAmount,
-      productDetailsPayableAmount,
-      customerSpecialPricesTotal,
-      customerSpecialPricesVatAmount,
-      customerSpecialPricesPayableAmount,
-      businessSpecialPricesTotal,
-      businessSpecialPricesVatAmount,
-      businessSpecialPricesPayableAmount,
-    },
-    ...(updatedItems && { items: updatedItems }),
-  }));
-};
+    // Add selected customer special prices
+    if (selectedSpecialPriceIds.length > 0) {
+      selectedSpecialPriceIds.forEach((id) => {
+        const item = specialPrices.find((sp) => sp.id === id);
+        const edited = editedSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
+          customerSpecialPricesTotal += total_price;
+          allItems.push({
+            price_per_unit: special_price,
+            quantity: quantity,
+            discount_applied: discount,
+            total_price: total_price,
+          });
+        }
+      });
+    }
 
+    // Add selected business special prices
+    if (selectedBusinessSpecialPriceIds.length > 0) {
+      selectedBusinessSpecialPriceIds.forEach((id) => {
+        const item = specialBusinessPrices.find((sp) => sp.id === id);
+        const edited = editedBusinessSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
+          businessSpecialPricesTotal += total_price;
+          allItems.push({
+            price_per_unit: special_price,
+            quantity: quantity,
+            discount_applied: discount,
+            total_price: total_price,
+          });
+        }
+      });
+    }
+
+    // Combined total for payload
+    const total_amount = allItems.reduce(
+      (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+      0
+    );
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(
+      ((total_amount * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+    const payable_amount = parseFloat(
+      (total_amount + vat_amount + delivery_amount).toFixed(2)
+    );
+    const grossAmount = allItems.reduce(
+      (sum, itm) =>
+        sum +
+        parseFloat(itm.price_per_unit ?? 0) * parseFloat(itm.quantity ?? 0),
+      0
+    );
+    const order_discount_amount = parseFloat(
+      (grossAmount - total_amount).toFixed(2)
+    );
+
+    // Calculate individual section totals for display
+    const productDetailsVatAmount = parseFloat(
+      ((productDetailsTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const productDetailsPayableAmount = parseFloat(
+      (productDetailsTotal + productDetailsVatAmount + delivery_amount).toFixed(
+        2
+      )
+    );
+
+    const customerSpecialPricesVatAmount = parseFloat(
+      ((customerSpecialPricesTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const customerSpecialPricesPayableAmount = parseFloat(
+      (
+        customerSpecialPricesTotal +
+        customerSpecialPricesVatAmount +
+        delivery_amount
+      ).toFixed(2)
+    );
+
+    const businessSpecialPricesVatAmount = parseFloat(
+      ((businessSpecialPricesTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const businessSpecialPricesPayableAmount = parseFloat(
+      (
+        businessSpecialPricesTotal +
+        businessSpecialPricesVatAmount +
+        delivery_amount
+      ).toFixed(2)
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      order: {
+        ...prev.order,
+        // Combined totals for payload
+        total_amount,
+        vat_percentage,
+        vat_amount,
+        delivery_amount,
+        payable_amount,
+        order_discount_amount,
+        // Individual section totals for display
+        productDetailsTotal,
+        productDetailsVatAmount,
+        productDetailsPayableAmount,
+        customerSpecialPricesTotal,
+        customerSpecialPricesVatAmount,
+        customerSpecialPricesPayableAmount,
+        businessSpecialPricesTotal,
+        businessSpecialPricesVatAmount,
+        businessSpecialPricesPayableAmount,
+      },
+      ...(updatedItems && { items: updatedItems }),
+    }));
+  };
 
   // ─── 16) FORM SUBMISSION ─────────────────────────────────────────────────────
-const handleSpecialPriceChange = (field, value, item) => {
-  setEditedSpecialPrice((prev) => {
-    const updated = {
-      ...prev[item.id],
-      [field]: value,
-    };
+  const handleSpecialPriceChange = (field, value, item) => {
+    setEditedSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
 
-    const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
-    const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-    const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
-    const total_price = parseFloat((quantity * (special_price - discount)).toFixed(2));
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
+      const total_price = parseFloat(
+        (quantity * (special_price - discount)).toFixed(2)
+      );
 
-    const newState = {
-      ...prev,
-      [item.id]: { ...updated, total_price },
-    };
+      const newState = {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
 
-    // Call unified calculation function
-    updateOrderTotals();
+      // Call unified calculation function
+      updateOrderTotals();
 
-    return newState;
-  });
-};
+      return newState;
+    });
+  };
 
+  const handleBusinessSpecialPriceChange = (field, value, item) => {
+    setEditedBusinessSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
 
-const handleBusinessSpecialPriceChange = (field, value, item) => {
-  setEditedBusinessSpecialPrice((prev) => {
-    const updated = {
-      ...prev[item.id],
-      [field]: value,
-    };
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
 
-    const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
-    const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-    const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
+      const total_price = parseFloat(
+        (quantity * (special_price - discount)).toFixed(2)
+      );
 
-    const total_price = parseFloat((quantity * (special_price - discount)).toFixed(2));
+      const newState = {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
 
-    const newState = {
-      ...prev,
-      [item.id]: { ...updated, total_price },
-    };
+      // Call unified calculation function
+      updateOrderTotals();
 
-    // Call unified calculation function
-    updateOrderTotals();
-
-    return newState;
-  });
-};
-
+      return newState;
+    });
+  };
 
   const handleSpecialPriceCheckbox = (id) => {
     setSelectedSpecialPriceIds((prev) => {
-      const newIds = prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id];
+      const newIds = prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id];
       return newIds;
     });
     // Trigger calculation immediately after state update
@@ -771,7 +858,9 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
 
   const handleBusinessSpecialPriceCheckbox = (id) => {
     setSelectedBusinessSpecialPriceIds((prev) => {
-      const newIds = prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id];
+      const newIds = prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id];
       return newIds;
     });
     // Trigger calculation immediately after state update
@@ -851,7 +940,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
           );
           const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
-            variant_id: item.id,
+            variant_id: item.variant_id,
             meter_range_id: item.meter_range_id || null,
             quantity,
             price_per_unit: special_price,
@@ -877,7 +966,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
           );
           const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
-            variant_id: item.id,
+            variant_id: item.variant_id,
             meter_range_id: item.meter_range_id || null,
             quantity,
             price_per_unit: special_price,
@@ -1041,7 +1130,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
             <div className="flex flex-wrap gap-5 w-full items-center">
               <div className="flex flex-col gap-1 min-w-[160px]">
                 <label htmlFor="order_type" className="text-sm font-[600]">
-                  Select Type
+                  Select Customer Type
                 </label>
                 <div className="relative">
                   <select
@@ -1181,7 +1270,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   <input
                                     type="checkbox"
                                     name="selectedSpecialPrice"
-                                    value={item.id}
+                                    value={item.variant_id}
                                     checked={selectedSpecialPriceIds.includes(
                                       item.id
                                     )}
@@ -1193,7 +1282,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
 
                                   <div className="flex-1">
                                     <p>
-                                      <strong>Variant ID:</strong> {item.id}
+                                      <strong>Variant ID:</strong> {item.variant_id}
                                     </p>
                                     <p>
                                       <strong>Special Price:</strong> £
@@ -1308,7 +1397,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                               readOnly
                                               className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
                                             />
-                                          </div>            
+                                          </div>
 
                                           <div>
                                             <label className="block text-sm font-medium mb-1">
@@ -1316,7 +1405,10 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={formData?.order?.vat_percentage ?? 0}
+                                              value={
+                                                formData?.order
+                                                  ?.vat_percentage ?? 0
+                                              }
                                               readOnly
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
@@ -1327,7 +1419,12 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={calculateIndividualSpecialPriceTotals(item, editedSpecialPrice[item.id]).vat_amount}
+                                              value={
+                                                calculateIndividualSpecialPriceTotals(
+                                                  item,
+                                                  editedSpecialPrice[item.id]
+                                                ).vat_amount
+                                              }
                                               readOnly
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
@@ -1339,7 +1436,10 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={formData?.order?.delivery_amount ?? 0}
+                                              value={
+                                                formData?.order
+                                                  ?.delivery_amount ?? 0
+                                              }
                                               readOnly
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
@@ -1351,7 +1451,12 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             </label>
                                             <input
                                               type="number"
-                                              value={calculateIndividualSpecialPriceTotals(item, editedSpecialPrice[item.id]).payable_amount}
+                                              value={
+                                                calculateIndividualSpecialPriceTotals(
+                                                  item,
+                                                  editedSpecialPrice[item.id]
+                                                ).payable_amount
+                                              }
                                               readOnly
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
@@ -1563,7 +1668,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                             <input
                               type="checkbox"
                               name="selectedBusinessSpecialPrice"
-                              value={item.id}
+                              value={item.variant_id}
                               checked={selectedBusinessSpecialPriceIds.includes(
                                 item.id
                               )}
@@ -1574,7 +1679,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                             />
                             <div className="flex-1">
                               <p>
-                                <strong>Variant ID:</strong> {item.id}
+                                <strong>Variant ID:</strong> {item.variant_id}
                               </p>
                               <p>
                                 <strong>Special Price:</strong> £
@@ -1694,7 +1799,9 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={formData?.order?.vat_percentage ?? 0}
+                                        value={
+                                          formData?.order?.vat_percentage ?? 0
+                                        }
                                         readOnly
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
@@ -1705,7 +1812,12 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={calculateIndividualSpecialPriceTotals(item, editedBusinessSpecialPrice[item.id]).vat_amount}
+                                        value={
+                                          calculateIndividualSpecialPriceTotals(
+                                            item,
+                                            editedBusinessSpecialPrice[item.id]
+                                          ).vat_amount
+                                        }
                                         readOnly
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
@@ -1717,7 +1829,9 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={formData?.order?.delivery_amount ?? 0}
+                                        value={
+                                          formData?.order?.delivery_amount ?? 0
+                                        }
                                         readOnly
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
@@ -1729,7 +1843,12 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                       </label>
                                       <input
                                         type="number"
-                                        value={calculateIndividualSpecialPriceTotals(item, editedBusinessSpecialPrice[item.id]).payable_amount}
+                                        value={
+                                          calculateIndividualSpecialPriceTotals(
+                                            item,
+                                            editedBusinessSpecialPrice[item.id]
+                                          ).payable_amount
+                                        }
                                         readOnly
                                         className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                       />
@@ -2128,27 +2247,18 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
 
                 {formData.items.map((product, index) => (
                   <div key={index} className="flex flex-col gap-6 w-full mt-6">
-                    {formData.items.length > 1 && index !== 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="bg-gray-100 py-2 px-4 w-30 text-red-500 hover:underline text-sm cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    )}
-
-                    <div className="flex gap-5">
-                      {/* Left: Product Dropdown */}
-                      <div className="w-1/3 flex flex-col gap-2">
-                        <label
-                          className="text-sm font-[500]"
-                          htmlFor={`product_name_${index}`}
-                        >
-                          Product Name List
-                        </label>
-                        <div className="relative">
-                          <select
+                    <div className="flex items-end justify-between gap-5">
+                      <div className="flex gap-5">
+                        {/* Left: Product Dropdown */}
+                        <div className="w-full min-w-[250px] flex flex-col gap-2">
+                          <label
+                            className="text-sm font-[500]"
+                            htmlFor={`product_name_${index}`}
+                          >
+                            Product Name List
+                          </label>
+                          <div className="relative">
+                            {/* <select
                             className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-full cursor-pointer"
                             name="product_name"
                             id={`product_name_${index}`}
@@ -2175,52 +2285,73 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                 {p.product_name}
                               </option>
                             ))}
-                          </select>
-                          {/* Custom dropdown arrow */}
-                          <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
+                          </select> */}
+                            <Select
+                              className="w-full"
+                              classNamePrefix="react-select"
+                              options={productOptionsFormatted}
+                              placeholder="Select Product Name"
+                              value={
+                                product.product_name
+                                  ? {
+                                      label: product.product_name,
+                                      value: product.product_name,
+                                    }
+                                  : null
+                              }
+                              onChange={(selectedOption) => {
+                                handleProductChange(
+                                  index,
+                                  "product_name",
+                                  selectedOption.value
+                                );
+                                handleProductChange(
+                                  index,
+                                  "product_id",
+                                  selectedOption.id
+                                );
+                              }}
+                            />
                           </div>
                         </div>
+
+                        {productVariants[index] &&
+                          productVariants[index].length > 0 && (
+                            <div className="flex items-end gap-2 mt-2">
+                              {productVariants[index].map((variant) => (
+                                <button
+                                  key={variant.id}
+                                  type="button"
+                                  className={`px-3 py-2 rounded text-sm ${
+                                    selectedVariant[index]?.id === variant.id
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-200"
+                                  }`}
+                                  onClick={() =>
+                                    setSelectedVariant((prev) => ({
+                                      ...prev,
+                                      [index]: variant,
+                                    }))
+                                  }
+                                >
+                                  {variant.color_name ||
+                                    variant.sku ||
+                                    `Variant ${variant.id}`}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                       </div>
 
-                      {productVariants[index] &&
-                        productVariants[index].length > 0 && (
-                          <div className="flex items-end gap-2 mt-2">
-                            {productVariants[index].map((variant) => (
-                              <button
-                                key={variant.id}
-                                type="button"
-                                className={`px-3 py-2 rounded text-sm ${
-                                  selectedVariant[index]?.id === variant.id
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-200"
-                                }`}
-                                onClick={() =>
-                                  setSelectedVariant((prev) => ({
-                                    ...prev,
-                                    [index]: variant,
-                                  }))
-                                }
-                              >
-                                {variant.color_name ||
-                                  variant.sku ||
-                                  `Variant ${variant.id}`}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                      {formData.items.length > 1 && index !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="bg-red-400 rounded-md font-[500] py-2 px-4 w-24 text-white hover:underline hover:bg-red-600 text-sm cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                     {selectedVariant[index] && (
                       <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
@@ -2278,32 +2409,56 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                     })()}
 
                                   {/* Dropdown - Only show if meter options exist */}
-                                  {meterOptions[index] && meterOptions[index].length > 0 && (
-                                    <select
-                                      className="bg-white rounded px-2 py-1 w-52 border"
-                                      value={
-                                        selection[index]?.meter_range_id ?? ""
-                                      }
-                                      onChange={(e) =>
-                                        handleSelectionChange(
-                                          index,
-                                          "meter_range_id",
-                                          parseInt(e.target.value)
-                                        )
-                                      }
-                                    >
-                                      <option value="">Select Range</option>
-                                      {meterOptions[index]?.map((opt) => (
-                                        <option
-                                          key={opt.meter_range_id}
-                                          value={opt.meter_range_id}
+
+                                  {meterOptions[index] &&
+                                    meterOptions[index].length > 0 && (
+                                      <div className="relative">
+                                        <select
+                                          className="bg-white rounded  appearance-none px-2 py-1 w-52 border"
+                                          value={
+                                            selection[index]?.meter_range_id ??
+                                            ""
+                                          }
+                                          onChange={(e) =>
+                                            handleSelectionChange(
+                                              index,
+                                              "meter_range_id",
+                                              parseInt(e.target.value)
+                                            )
+                                          }
                                         >
-                                          {opt.range_label} ({opt.min_meters}m -{" "}
-                                          {opt.max_meters}m)
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
+                                          <option value="">
+                                            Select Meter Range
+                                          </option>
+                                          {meterOptions[index]?.map((opt) => (
+                                            <option
+                                              key={opt.meter_range_id}
+                                              value={opt.meter_range_id}
+                                            >
+                                              {opt.range_label} (
+                                              {opt.min_meters}m -{" "}
+                                              {opt.max_meters}m)
+                                            </option>
+                                          ))}
+                                        </select>
+
+                                        <div className="absolute inset-y-0 -top-0 -right-1 flex items-center px-3 text-gray-500">
+                                          <svg
+                                            className="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M19 9l-7 7-7-7"
+                                            />
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    )}
                                 </div>
 
                                 {/* Price */}
@@ -2404,14 +2559,20 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                             ];
                                             updatedItems[index].quantity =
                                               input;
-                                            
+
                                             // Calculate total price in real-time
-                                            const quantity = parseInt(input) || 0;
-                                            const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
-                                            const totalPrice = quantity * finalPrice;
-                                            
-                                            updatedItems[index].total_price = totalPrice;
-                                            
+                                            const quantity =
+                                              parseInt(input) || 0;
+                                            const finalPrice =
+                                              parseFloat(
+                                                selection[index]?.finalPrice
+                                              ) || 0;
+                                            const totalPrice =
+                                              quantity * finalPrice;
+
+                                            updatedItems[index].total_price =
+                                              totalPrice;
+
                                             // Use unified calculation
                                             updateOrderTotals(updatedItems);
                                           }
@@ -2488,7 +2649,10 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={calculateIndividualProductTotals(index).vat_amount}
+                                    value={
+                                      calculateIndividualProductTotals(index)
+                                        .vat_amount
+                                    }
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2500,7 +2664,9 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={formData?.order?.delivery_amount ?? 0}
+                                    value={
+                                      formData?.order?.delivery_amount ?? 0
+                                    }
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2512,7 +2678,10 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                                   </label>
                                   <input
                                     type="number"
-                                    value={calculateIndividualProductTotals(index).payable_amount}
+                                    value={
+                                      calculateIndividualProductTotals(index)
+                                        .payable_amount
+                                    }
                                     readOnly
                                     className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                   />
@@ -2563,7 +2732,7 @@ const handleBusinessSpecialPriceChange = (field, value, item) => {
                       className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%] cursor-pointer"
                     >
                       <option value="" selected disabled>
-                        Select Business Type
+                        Select Payment Method
                       </option>
                       <option value="Credit card">Credit card</option>
                       <option value="Direct debit">Direct debit</option>

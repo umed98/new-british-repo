@@ -3,54 +3,26 @@ import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
 
-const AddOrder = () => {
+const AddOrderAuto = () => {
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const location = useLocation();
 
-  // If state is not present, redirect or show a message
-  if (!state) {
-    // Option 1: Redirect back
-    navigate(-1);
-    return null;
-    // Option 2: Show a message instead:
-    // return <div className="p-10 text-red-600 font-bold">This page requires pre-filled data. Please start from the Customer Info page.</div>;
-  }
-
-  // Instead, destructure with fallback to empty object
-  const { customer, singleBusiness, addresses, specialPrice } = state || {};
-
-  console.log(customer, "this is businesses");
-
-  useEffect(() => {
-    if (!state) return; // Only preselect if state is present
-
-    if (
-      singleBusiness &&
-      Array.isArray(singleBusiness) &&
-      singleBusiness.length > 0
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        order_type: "b2b",
-        business_id: singleBusiness[0].id,
-        customer_id: "",
-      }));
-      setBusiness(singleBusiness);
-    } else if (customer) {
-      setFormData((prev) => ({
-        ...prev,
-        order_type: "b2c",
-        business_id: "",
-        customer_id: customer.id,
-      }));
-      setCustomers([customer]);
-    }
-  }, [state, singleBusiness, customer]);
+  console.log(location.state, "this is state");
+  // Extract data from CustomerInfo.jsx
+  const {
+    customer,
+    business,
+    businesses,
+    selectedAddresses,
+    selectedSpecialPrices,
+    allAddresses,
+    allSpecialPrices,
+  } = location.state || {};
 
   const [formData, setFormData] = useState({
     order_type: "", // <-- added this
-    business_id: "",
-    customer_id: "",
+    business_id: business?.id || "",
+    customer_id: customer?.id || "",
     billing_id: "",
     shipping_id: "",
 
@@ -58,6 +30,11 @@ const AddOrder = () => {
       order_date: "",
       status: "pending",
       total_amount: "",
+      order_discount_amount: "",
+      vat_percentage: "",
+      vat_amount: "",
+      delivery_amount: "",
+      payable_amount: "",
       payment_method: "",
       payment_status: "pending",
       source: "crm",
@@ -65,7 +42,6 @@ const AddOrder = () => {
     },
     items: [
       {
-        type: "meter",
         variant_id: "",
         meter_range_id: "",
         quantity: "",
@@ -74,7 +50,15 @@ const AddOrder = () => {
         total_price: "",
       },
     ],
-    billing_addresses: [
+    billing_addresses: selectedAddresses
+      ?.filter((addr) => addr.pivot?.type === "billing")
+      ?.map((addr) => ({
+        address_line_1: addr.address_line1 || "",
+        address_line_2: addr.address_line2 || "",
+        city: addr.city || "",
+        postal_code: addr.postal_code || "",
+        country: addr.country || "",
+      })) || [
       {
         address_line_1: "",
         address_line_2: "",
@@ -83,7 +67,15 @@ const AddOrder = () => {
         country: "",
       },
     ],
-    shipping_addresses: [
+    shipping_addresses: selectedAddresses
+      ?.filter((addr) => addr.pivot?.type === "shipping")
+      ?.map((addr) => ({
+        address_line_1: addr.address_line1 || "",
+        address_line_2: addr.address_line2 || "",
+        city: addr.city || "",
+        postal_code: addr.postal_code || "",
+        country: addr.country || "",
+      })) || [
       {
         address_line_1: "",
         address_line_2: "",
@@ -103,31 +95,157 @@ const AddOrder = () => {
   const [quantities, setQuantities] = useState({}); // { [index]: { [sizeId]: qty } }
 
   // ─── 3) OTHER FORM-RELATED STATES ─────────────────────────────────────────
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(customer || null);
+  const [selectedBusiness, setSelectedBusiness] = useState(business || null);
   const [customers, setCustomers] = useState([]);
-  const [business, setBusiness] = useState([]);
+  const [businessList, setBusinessList] = useState(businesses || []);
   const [shippingAddress, setShippingAddress] = useState(null);
   const [billingAddress, setBillingAddress] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(
+    customer?.id || ""
+  );
   const [meterOptions, setMeterOptions] = useState({});
   const [selection, setSelection] = useState({});
-  const [specialPrices, setSpecialPrices] = useState([]);
+  const [specialPrices, setSpecialPrices] = useState(allSpecialPrices || []);
   const [specialBusinessPrices, setSpecialBusinessPrices] = useState([]);
+  const [selectedSpecialPriceIds, setSelectedSpecialPriceIds] = useState(
+    selectedSpecialPrices && selectedSpecialPrices.length > 0
+      ? selectedSpecialPrices.map((sp) => sp.id)
+      : []
+  );
+  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] =
+    useState([]);
 
-  // Add state for multi-select and editing
-  const [selectedSpecialPriceIds, setSelectedSpecialPriceIds] = useState([]);
-  const [selectedBusinessSpecialPriceIds, setSelectedBusinessSpecialPriceIds] = useState([]);
   const [editedSpecialPrice, setEditedSpecialPrice] = useState({});
-  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState({});
+  const [editedBusinessSpecialPrice, setEditedBusinessSpecialPrice] = useState(
+    {}
+  );
 
-  const productOptionsFormatted = productOptions.map((p) => ({
-    value: p.id,
-    label: p.product_name,
-  }));
+  // Auto-populate addresses if selected addresses are available
+  useEffect(() => {
+    if (selectedAddresses && selectedAddresses.length > 0) {
+      const billingAddr = selectedAddresses.find(
+        (addr) => addr.pivot?.type === "billing"
+      );
+      const shippingAddr = selectedAddresses.find(
+        (addr) => addr.pivot?.type === "shipping"
+      );
 
-  console.log("Special Price", specialPrices);
+      if (billingAddr) {
+        setBillingAddress(billingAddr.id);
+      }
+      if (shippingAddr) {
+        setShippingAddress(shippingAddr.id);
+      }
+    }
+  }, [selectedAddresses]);
+
+  // Auto-populate special prices if selected
+  useEffect(() => {
+    if (selectedSpecialPrices && selectedSpecialPrices.length > 0) {
+      const newEditedSpecialPrice = {};
+      selectedSpecialPrices.forEach((sp) => {
+        newEditedSpecialPrice[sp.id] = {
+          special_price: sp.special_price,
+          variant_discount: sp.variant_discount,
+          quantity: "1", // Default quantity
+          total_price: sp.special_price,
+        };
+      });
+      setEditedSpecialPrice((prev) => ({
+        ...prev,
+        ...newEditedSpecialPrice,
+      }));
+    }
+  }, [selectedSpecialPrices]);
+
+  // Auto-set order type and handle data from CustomerInfo
+  useEffect(() => {
+    if (customer && business) {
+      // If both customer and business are available, default to B2B
+      setFormData((prev) => ({
+        ...prev,
+        order_type: "b2b",
+        customer_id: customer.id,
+        business_id: business.id,
+      }));
+    } else if (customer) {
+      // If only customer is available, set to B2C
+      setFormData((prev) => ({
+        ...prev,
+        order_type: "b2c",
+        customer_id: customer.id,
+      }));
+    } else if (business) {
+      // If only business is available, set to B2B
+      setFormData((prev) => ({
+        ...prev,
+        order_type: "b2b",
+        business_id: business.id,
+      }));
+    }
+  }, [customer, business]);
+
+  // Populate customers array with customer data from location.state
+  useEffect(() => {
+    if (customer) {
+      setCustomers([customer]);
+    }
+  }, [customer]);
+
+  // Populate businessList array with business data from location.state
+  useEffect(() => {
+    if (businesses && businesses.length > 0) {
+      setBusinessList(businesses);
+    }
+  }, [businesses]);
+
+  // Prevent automatic fetching when we already have the data
+  useEffect(() => {
+    if (customer && !formData.customer_id) {
+      setSelectedCustomer(customer);
+    }
+  }, [customer, formData.customer_id]);
+
+  useEffect(() => {
+    if (business && !formData.business_id) {
+      setSelectedBusiness(business);
+    }
+  }, [business, formData.business_id]);
+
+  // // Debug logging to see what data we have
+  // useEffect(() => {
+  //   console.log("Current state:", {
+  //     customer,
+  //     business,
+  //     selectedCustomer,
+  //     selectedBusiness,
+  //     formData: {
+  //       order_type: formData.order_type,
+  //       customer_id: formData.customer_id,
+  //       business_id: formData.business_id
+  //     },
+  //     selectedAddresses,
+  //     allAddresses
+  //   });
+  // }, [customer, business, selectedCustomer, selectedBusiness, formData.order_type, formData.customer_id, formData.business_id, selectedAddresses, allAddresses]);
+
+  //Auto Populate The Order Date
+  useEffect(() => {
+    if (
+      customer?.created_at &&
+      (!formData.order.order_date || formData.order.order_date === "")
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        order: {
+          ...prev.order,
+          order_date: customer.created_at.slice(0, 10),
+        },
+      }));
+    }
+  }, [customer, formData.order.order_date]);
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
@@ -141,7 +259,7 @@ const AddOrder = () => {
       .catch((err) => console.error("API error:", err));
   }, []);
 
-  // ─── 5) HANDLER: WHEN USER CHOOSES A PRODUCT FOR A GIVEN ITEM INDEX ───────
+  // -----------------------------------Handeling the Product change and its variants on "Selected Product"---------------------------------------------------------
   const handleProductChange = async (index, field, value) => {
     const updatedItems = [...formData.items];
 
@@ -162,7 +280,7 @@ const AddOrder = () => {
         );
 
         if (res.data.success) {
-          const variants = res.data.product.variants || [];
+          const variants = res.data.variants || [];
           const defaultVariant =
             variants.find((v) => v.color_id) || variants[0];
 
@@ -181,20 +299,40 @@ const AddOrder = () => {
             [index]: defaultVariant,
           }));
 
-          const defaultMeterOptions = defaultVariant.meter_prices || [];
+          // Check if variant uses meter pricing
+          const useMeterPricing = defaultVariant.use_meter_pricing || false;
+          const defaultMeterOptions = useMeterPricing
+            ? defaultVariant.meter_pricing || []
+            : [];
+          // console.log("Meter options:", defaultMeterOptions);
+          // console.log("Use meter pricing:", useMeterPricing);
 
           setMeterOptions((prev) => ({
             ...prev,
             [index]: defaultMeterOptions,
           }));
 
+          // Initialize selection based on whether meter pricing is used
+          const defaultPrice = useMeterPricing
+            ? ""
+            : defaultVariant.price || "";
+          const defaultDiscount = useMeterPricing
+            ? ""
+            : defaultVariant.discount || "";
+          const defaultFinalPrice = useMeterPricing
+            ? ""
+            : (
+                parseFloat(defaultVariant.price || 0) -
+                parseFloat(defaultVariant.discount || 0)
+              ).toFixed(2);
+
           setSelection((prev) => ({
             ...prev,
             [index]: {
-              meterRangeId: "",
-              price: "",
-              discount: "",
-              finalPrice: "",
+              meter_range_id: useMeterPricing ? "" : null,
+              price: defaultPrice,
+              discount: defaultDiscount,
+              finalPrice: defaultFinalPrice,
             },
           }));
 
@@ -202,10 +340,10 @@ const AddOrder = () => {
             ...updatedItems[index],
             product_id: selectedProduct.id,
             variant_id: defaultVariant?.id || "",
-            price_per_unit: "",
-            discount_applied: "",
-            meter_range_id: "",
-            total_price: "",
+            price_per_unit: defaultPrice,
+            discount_applied: defaultDiscount,
+            meter_range_id: useMeterPricing ? "" : null,
+            total_price: defaultFinalPrice,
           };
         }
       } catch (err) {
@@ -304,7 +442,6 @@ const AddOrder = () => {
       items: [
         ...prev.items,
         {
-          type: "meter",
           variant_id: "",
           quantity: "",
           meter_range_id: "",
@@ -321,7 +458,7 @@ const AddOrder = () => {
     setSelection((prev) => ({
       ...prev,
       [newIndex]: {
-        meterRangeId: "",
+        meter_range_id: "",
         price: "",
         discount: "",
         finalPrice: "",
@@ -382,7 +519,7 @@ const AddOrder = () => {
         .get("https://britishquilting.fastranking.cloud/api/businesses")
         .then((res) => {
           if (res.data.status) {
-            setBusiness(res.data.data);
+            setBusinessList(res.data.data);
           }
         })
         .catch((err) => console.error(err));
@@ -428,7 +565,7 @@ const AddOrder = () => {
       if (!formData.customer_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices-new`
         );
         setSpecialPrices(res.data?.data || []);
       } catch (err) {
@@ -466,7 +603,7 @@ const AddOrder = () => {
       if (!formData.business_id) return;
       try {
         const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices`
+          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices-new`
         );
         setSpecialBusinessPrices(res.data?.data || []);
       } catch (err) {
@@ -481,7 +618,7 @@ const AddOrder = () => {
   // ---------------------------------------------------Above Special Price APi For Business Only-------------------------------------------------------
 
   // Build `options` array for your Select component (B2B vs B2C)
-  const options = (isBusiness ? business : customers).map((item) => ({
+  const options = (isBusiness ? businessList : customers).map((item) => ({
     label: isBusiness
       ? item.business_name
       : `${item.first_name} ${item.last_name}`,
@@ -532,15 +669,98 @@ const AddOrder = () => {
     }));
   }, [selectedVariant, selectedSizes, quantities]);
 
+  // ─── 15.5) UNIFIED CALCULATION TRIGGER ───────────────────────────────────────
+  useEffect(() => {
+    // Trigger unified calculation when special prices or form items change
+    updateOrderTotals();
+  }, [
+    selectedSpecialPriceIds,
+    selectedBusinessSpecialPriceIds,
+    specialPrices,
+    specialBusinessPrices,
+  ]);
+
+  // ─── 15.6) ADDITIONAL CALCULATION TRIGGERS ───────────────────────────────────
+  useEffect(() => {
+    // Trigger calculation when edited special prices change
+    if (
+      Object.keys(editedSpecialPrice).length > 0 ||
+      Object.keys(editedBusinessSpecialPrice).length > 0
+    ) {
+      updateOrderTotals();
+    }
+  }, [editedSpecialPrice, editedBusinessSpecialPrice]);
+
+  // ─── 15.7) INITIAL CALCULATION TRIGGER ───────────────────────────────────────
+  useEffect(() => {
+    // Trigger initial calculation when component mounts or when special prices are loaded
+    if (specialPrices.length > 0 || specialBusinessPrices.length > 0) {
+      updateOrderTotals();
+    }
+  }, [specialPrices, specialBusinessPrices]);
+
+  // ─── 15.8) HELPER FUNCTIONS FOR INDIVIDUAL CALCULATIONS ───────────────────────
+  const calculateIndividualSpecialPriceTotals = (item, editedData = {}) => {
+    const special_price = parseFloat(
+      editedData.special_price ?? item.special_price ?? 0
+    );
+    const quantity = parseFloat(editedData.quantity ?? item.quantity ?? 0);
+    const discount = parseFloat(
+      editedData.variant_discount ?? item.variant_discount ?? 0
+    );
+    const total_price = quantity * (special_price - discount);
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(
+      ((total_price * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+    const payable_amount = parseFloat(
+      (total_price + vat_amount + delivery_amount).toFixed(2)
+    );
+
+    return {
+      total_price,
+      vat_amount,
+      payable_amount,
+    };
+  };
+
+  // ─── 15.9) HELPER FUNCTION FOR INDIVIDUAL PRODUCT CALCULATIONS ─────────────────
+  const calculateIndividualProductTotals = (index) => {
+    const item = formData.items[index];
+    const total_price = parseFloat(item.total_price ?? 0);
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(
+      ((total_price * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+    const payable_amount = parseFloat(
+      (total_price + vat_amount + delivery_amount).toFixed(2)
+    );
+
+    return {
+      total_price,
+      vat_amount,
+      payable_amount,
+    };
+  };
+
+  // Product search Select Dropdown Options
+  const productOptionsFormatted = productOptions.map((p) => ({
+    label: p.product_name,
+    value: p.product_name,
+    id: p.id,
+  }));
+
   /*Meter Selection dropdown----------------------------------------------------------------- */
 
   const handleSelectionChange = (index, field, value) => {
     const updatedSelection = { ...selection[index], [field]: value };
     const updatedItems = [...formData.items];
 
-    if (field === "meterRangeId") {
+    if (field === "meter_range_id") {
       const range = meterOptions[index]?.find(
-        (opt) => opt.id === parseInt(value)
+        (opt) => opt.meter_range_id === parseInt(value)
       );
       updatedSelection.price = range?.price || "";
       updatedSelection.discount = range?.discount || "";
@@ -567,13 +787,245 @@ const AddOrder = () => {
       [index]: updatedSelection,
     }));
 
+    // Use unified calculation instead of just updating formData
+    updateOrderTotals(updatedItems);
+  };
+
+  // Function To Calculate total
+  const updateOrderTotals = (updatedItems = null) => {
+    // Get all items to calculate totals from
+    let allItems = [];
+
+    // Add regular form items
+    if (updatedItems) {
+      allItems = [...updatedItems];
+    } else {
+      allItems = [...formData.items];
+    }
+
+    // Calculate individual section totals
+    const productDetailsTotal = allItems.reduce(
+      (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+      0
+    );
+
+    let customerSpecialPricesTotal = 0;
+    let businessSpecialPricesTotal = 0;
+
+    // Add selected customer special prices
+    if (selectedSpecialPriceIds.length > 0) {
+      selectedSpecialPriceIds.forEach((id) => {
+        const item = specialPrices.find((sp) => sp.id === id);
+        const edited = editedSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
+          customerSpecialPricesTotal += total_price;
+          allItems.push({
+            price_per_unit: special_price,
+            quantity: quantity,
+            discount_applied: discount,
+            total_price: total_price,
+          });
+        }
+      });
+    }
+
+    // Add selected business special prices
+    if (selectedBusinessSpecialPriceIds.length > 0) {
+      selectedBusinessSpecialPriceIds.forEach((id) => {
+        const item = specialBusinessPrices.find((sp) => sp.id === id);
+        const edited = editedBusinessSpecialPrice[id] || {};
+        if (item) {
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
+          const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
+          businessSpecialPricesTotal += total_price;
+          allItems.push({
+            price_per_unit: special_price,
+            quantity: quantity,
+            discount_applied: discount,
+            total_price: total_price,
+          });
+        }
+      });
+    }
+
+    // Combined total for payload
+    const total_amount = allItems.reduce(
+      (sum, itm) => sum + parseFloat(itm.total_price ?? 0),
+      0
+    );
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(
+      ((total_amount * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+    const payable_amount = parseFloat(
+      (total_amount + vat_amount + delivery_amount).toFixed(2)
+    );
+    const grossAmount = allItems.reduce(
+      (sum, itm) =>
+        sum +
+        parseFloat(itm.price_per_unit ?? 0) * parseFloat(itm.quantity ?? 0),
+      0
+    );
+    const order_discount_amount = parseFloat(
+      (grossAmount - total_amount).toFixed(2)
+    );
+
+    // Calculate individual section totals for display
+    const productDetailsVatAmount = parseFloat(
+      ((productDetailsTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const productDetailsPayableAmount = parseFloat(
+      (productDetailsTotal + productDetailsVatAmount + delivery_amount).toFixed(
+        2
+      )
+    );
+
+    const customerSpecialPricesVatAmount = parseFloat(
+      ((customerSpecialPricesTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const customerSpecialPricesPayableAmount = parseFloat(
+      (
+        customerSpecialPricesTotal +
+        customerSpecialPricesVatAmount +
+        delivery_amount
+      ).toFixed(2)
+    );
+
+    const businessSpecialPricesVatAmount = parseFloat(
+      ((businessSpecialPricesTotal * vat_percentage) / 100).toFixed(2)
+    );
+    const businessSpecialPricesPayableAmount = parseFloat(
+      (
+        businessSpecialPricesTotal +
+        businessSpecialPricesVatAmount +
+        delivery_amount
+      ).toFixed(2)
+    );
+
     setFormData((prev) => ({
       ...prev,
-      items: updatedItems,
+      order: {
+        ...prev.order,
+        // Combined totals for payload
+        total_amount,
+        vat_percentage,
+        vat_amount,
+        delivery_amount,
+        payable_amount,
+        order_discount_amount,
+        // Individual section totals for display
+        productDetailsTotal,
+        productDetailsVatAmount,
+        productDetailsPayableAmount,
+        customerSpecialPricesTotal,
+        customerSpecialPricesVatAmount,
+        customerSpecialPricesPayableAmount,
+        businessSpecialPricesTotal,
+        businessSpecialPricesVatAmount,
+        businessSpecialPricesPayableAmount,
+      },
+      ...(updatedItems && { items: updatedItems }),
     }));
   };
 
   // ─── 16) FORM SUBMISSION ─────────────────────────────────────────────────────
+  const handleSpecialPriceChange = (field, value, item) => {
+    setEditedSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
+      const total_price = parseFloat(
+        (quantity * (special_price - discount)).toFixed(2)
+      );
+
+      const newState = {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+
+      // Call unified calculation function
+      updateOrderTotals();
+
+      return newState;
+    });
+  };
+
+  const handleBusinessSpecialPriceChange = (field, value, item) => {
+    setEditedBusinessSpecialPrice((prev) => {
+      const updated = {
+        ...prev[item.id],
+        [field]: value,
+      };
+
+      const special_price = parseFloat(
+        updated.special_price ?? item.special_price ?? 0
+      );
+      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
+      const discount = parseFloat(
+        updated.variant_discount ?? item.variant_discount ?? 0
+      );
+
+      const total_price = parseFloat(
+        (quantity * (special_price - discount)).toFixed(2)
+      );
+
+      const newState = {
+        ...prev,
+        [item.id]: { ...updated, total_price },
+      };
+
+      // Call unified calculation function
+      updateOrderTotals();
+
+      return newState;
+    });
+  };
+
+  const handleSpecialPriceCheckbox = (id) => {
+    setSelectedSpecialPriceIds((prev) => {
+      const newIds = prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id];
+      return newIds;
+    });
+    // Trigger calculation immediately after state update
+    setTimeout(() => updateOrderTotals(), 100);
+  };
+
+  const handleBusinessSpecialPriceCheckbox = (id) => {
+    setSelectedBusinessSpecialPriceIds((prev) => {
+      const newIds = prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id];
+      return newIds;
+    });
+    // Trigger calculation immediately after state update
+    setTimeout(() => updateOrderTotals(), 100);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -616,13 +1068,12 @@ const AddOrder = () => {
     }
 
     // ─── TRANSFORM ITEMS ───────────────────────────────────────
-    const transformedOrderItems = updatedFormData.items.map((item, index) => {
+    let transformedOrderItems = updatedFormData.items.map((item, index) => {
       const variant = selectedVariant[index] || {};
       const price_per_unit = parseFloat(item.price_per_unit || 0);
       const discount_applied = parseFloat(item.discount_applied || 0);
       const quantity = parseInt(item.quantity || 0);
       const total_price = (price_per_unit - discount_applied) * quantity;
-
       return {
         type: item.type,
         variant_id: item.variant_id,
@@ -640,12 +1091,16 @@ const AddOrder = () => {
         const item = specialPrices.find((sp) => sp.id === id);
         const edited = editedSpecialPrice[id] || {};
         if (item) {
-          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
           const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-          const total_price = (quantity * (special_price - discount));
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
-            variant_id: item.id,
+            variant_id: item.variant_id,
             meter_range_id: item.meter_range_id || null,
             quantity,
             price_per_unit: special_price,
@@ -662,12 +1117,16 @@ const AddOrder = () => {
         const item = specialBusinessPrices.find((sp) => sp.id === id);
         const edited = editedBusinessSpecialPrice[id] || {};
         if (item) {
-          const special_price = parseFloat(edited.special_price ?? item.special_price ?? 0);
+          const special_price = parseFloat(
+            edited.special_price ?? item.special_price ?? 0
+          );
           const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-          const discount = parseFloat(edited.variant_discount ?? item.variant_discount ?? 0);
-          const total_price = (quantity * (special_price - discount));
+          const discount = parseFloat(
+            edited.variant_discount ?? item.variant_discount ?? 0
+          );
+          const total_price = quantity * (special_price - discount);
           transformedOrderItems.push({
-            variant_id: item.id,
+            variant_id: item.variant_id,
             meter_range_id: item.meter_range_id || null,
             quantity,
             price_per_unit: special_price,
@@ -678,17 +1137,24 @@ const AddOrder = () => {
       });
     }
 
-    // ─── Compute Grand Total ─────────────────────────────────
-    const total_amount = transformedOrderItems.reduce(
-      (sum, itm) => sum + itm.total_price,
-      0
-    );
+    // ─── Compute Grand Total ────────────────────────────────
+    // Use values from formData.order that are calculated by updateOrderTotals
 
     const finalPayload = {
       ...updatedFormData,
       order: {
-        ...updatedFormData.order,
-        total_amount,
+        order_date: updatedFormData.order.order_date,
+        status: updatedFormData.order.status,
+        total_amount: formData.order.total_amount,
+        order_discount_amount: formData.order.order_discount_amount,
+        vat_percentage: formData.order.vat_percentage,
+        vat_amount: formData.order.vat_amount,
+        delivery_amount: formData.order.delivery_amount,
+        payable_amount: formData.order.payable_amount,
+        payment_method: updatedFormData.order.payment_method,
+        payment_status: updatedFormData.order.payment_status,
+        source: updatedFormData.order.source,
+        source_reference: updatedFormData.order.source_reference,
       },
       items: transformedOrderItems,
     };
@@ -711,7 +1177,7 @@ const AddOrder = () => {
     // ─── Submit ───────────────────────────────────────────────
     axios
       .post(
-        "https://britishquilting.fastranking.cloud/api/new-order",
+        "https://britishquilting.fastranking.cloud/api/new-order-new-latest",
         finalPayload
       )
       .then((res) => {
@@ -729,6 +1195,11 @@ const AddOrder = () => {
               order_date: "",
               status: "pending",
               total_amount: "",
+              order_discount_amount: "",
+              vat_percentage: "",
+              vat_amount: "",
+              delivery_amount: "",
+              payable_amount: "",
               payment_method: "",
               payment_status: "pending",
               source: "crm",
@@ -736,7 +1207,6 @@ const AddOrder = () => {
             },
             items: [
               {
-                type: "meter",
                 variant_id: "",
                 quantity: "",
                 meter_range_id: "",
@@ -781,6 +1251,7 @@ const AddOrder = () => {
         console.error("Submission Error:", error);
         alert("An error occurred while submitting the order.");
       });
+    // console.log(finalPayload, "final payload");
   };
 
   const addAddress = (type) => {
@@ -805,61 +1276,8 @@ const AddOrder = () => {
     setFormData({ ...formData, [type]: updated });
   };
 
-  // Fetch business and customer lists on mount for direct access
-  useEffect(() => {
-    axios.get("https://britishquilting.fastranking.cloud/api/businesses")
-      .then(res => {
-        if (res.data.status) setBusiness(res.data.data);
-      });
-    axios.get("https://britishquilting.fastranking.cloud/api/customers")
-      .then(res => {
-        if (res.data.status) setCustomers(res.data.data);
-      });
-  }, []);
-
-  // Handlers for checkboxes and edits
-  const handleSpecialPriceCheckbox = (id) => {
-    setSelectedSpecialPriceIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
-  };
-  const handleBusinessSpecialPriceCheckbox = (id) => {
-    setSelectedBusinessSpecialPriceIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
-  };
-  const handleSpecialPriceChange = (field, value, item) => {
-    setEditedSpecialPrice((prev) => {
-      const updated = {
-        ...prev[item.id],
-        [field]: value,
-      };
-      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
-      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
-      const total_price = (quantity * (special_price - discount)).toFixed(2);
-      return {
-        ...prev,
-        [item.id]: { ...updated, total_price },
-      };
-    });
-  };
-  const handleBusinessSpecialPriceChange = (field, value, item) => {
-    setEditedBusinessSpecialPrice((prev) => {
-      const updated = {
-        ...prev[item.id],
-        [field]: value,
-      };
-      const special_price = parseFloat(updated.special_price ?? item.special_price ?? 0);
-      const quantity = parseFloat(updated.quantity ?? item.quantity ?? 0);
-      const discount = parseFloat(updated.variant_discount ?? item.variant_discount ?? 0);
-      const total_price = (quantity * (special_price - discount)).toFixed(2);
-      return {
-        ...prev,
-        [item.id]: { ...updated, total_price },
-      };
-    });
-  };
+  // Add these derived values at the top of the component (after state):
+  // Removed old derived values - now using unified calculation in updateOrderTotals()
 
   return (
     <div className=" w-full z-0 pl-[200px] lg:pl-[250px] xl:pl-[300px]">
@@ -869,21 +1287,22 @@ const AddOrder = () => {
         </h1>
         <div className="bg-white rounded-[8px] border-1 border-[#D6D6D6] w-full pb-6 p-8 h-auto mt-5">
           <form onSubmit={handleSubmit} action="">
-            <div className="flex gap-5 w-full items-center">
-              <div className="flex flex-col gap-1 w-[220px]">
+            <div className="flex flex-wrap gap-5 w-full items-center">
+              <div className="flex flex-col gap-1 min-w-[160px]">
                 <label htmlFor="order_type" className="text-sm font-[600]">
-                  Select Type
+                  Select Customer Type
                 </label>
                 <div className="relative">
                   <select
+                    disabled
                     name="order_type"
                     id="order_type"
                     value={formData.order_type || ""}
                     onChange={(e) => handleTypeChange(e)}
-                    className="py-[6px] px-4 border-1 cursor-pointer appearance-none border-[#C5C5C5] rounded-[4px] placeholder:text-[#969696] w-full"
+                    className="py-[8.5px] text-sm px-4 border-1 cursor-pointer appearance-none border-[#C5C5C5] rounded-[4px] placeholder:text-[#969696] w-full"
                   >
                     <option value="" disabled>
-                      Select Customer Type
+                      Select Order Type
                     </option>
                     <option value="b2b">Business</option>
                     <option value="b2c">Contact</option>
@@ -906,13 +1325,15 @@ const AddOrder = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 w-[300px]">
+              <div className="flex flex-col gap-1 ">
                 <label htmlFor="name_selector" className="text-sm font-[600]">
                   Business or Contact Name
                 </label>
 
                 <Select
-                  className="w-[300px] cursor-pointer outline-none appearance-none"
+                  isSearchable={false}
+                  menuIsOpen={false} 
+                  className=" text-sm cursor-pointer outline-none appearance-none"
                   options={options}
                   value={selectedOption}
                   onChange={(selected) => {
@@ -924,6 +1345,7 @@ const AddOrder = () => {
                     option: (base) => ({ ...base, cursor: "pointer" }),
                   }}
                   placeholder="Select Business or Contact"
+                  
                 />
               </div>
 
@@ -944,89 +1366,107 @@ const AddOrder = () => {
                       },
                     }))
                   }
-                  className="py-[6px] px-4  cursor-pointer rounded-[6px] border-1 border-gray-300"
+                  className="py-[8.5px] px-4 text-sm cursor-pointer rounded-[4px] border-1 border-gray-300"
                 />
               </div>
             </div>
 
-            {/* <div className="p-10">
-              <h1 className="text-lg font-bold mb-3">Business Details</h1>
-              <pre className="bg-gray-100 p-3 rounded mb-2 text-sm">
-                {singleBusiness ? JSON.stringify(singleBusiness, null, 2) : "No business selected"}
-              </pre>
-
-              <h1 className="text-lg font-bold mb-1">Customer Details</h1>
-              <pre className="text-lg mb-6">
-                {customer
-                  ? `${customer.first_name} ${customer.middle_name} ${customer.last_name}`
-                  : "No customer selected"}
-              </pre>
-
-              <h2 className="text-xl font-semibold mb-2">Chosen Address(es)</h2>
-              {Array.isArray(addresses) && addresses.length > 0 ? (
-                addresses.map((addr) => (
-                  <pre
-                    key={addr.id}
-                    className="bg-gray-100 p-3 rounded mb-2 text-sm"
-                  >
-                    {JSON.stringify(addr, null, 2)}
-                  </pre>
-                ))
-              ) : (
-                <div>No addresses selected</div>
+            <div className="border border-gray-300 rounded-[6px] p-5 bg-[#f8fff3] w-full mt-6 min-h-50">
+              {/* Customer Info - Always show if customer exists */}
+              {customer && (
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold mb-2 text-gray-800">
+                    Customer Details
+                  </h2>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <strong>Customer ID:</strong> {customer.id}
+                    </p>
+                    <p>
+                      <strong>Name:</strong> {customer.first_name}{" "}
+                      {customer.middle_name} {customer.last_name}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {customer.email}
+                    </p>
+                    {customer.phone ? (
+                      <p>
+                        <strong>Phone:</strong> {customer.phone}
+                      </p>
+                    ) : customer.mobile ? (
+                      <p>
+                        <strong>Mobile:</strong> {customer.mobile}
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>Phone:</strong> N/A
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
 
-              <h2 className="text-xl font-semibold mb-2">Special Price</h2>
-              <pre className="bg-gray-100 p-3 rounded text-sm">
-                {specialPrice ? JSON.stringify(specialPrice, null, 2) : "No special price selected"}
-              </pre>
-            </div> */}
+              {/* Business Info - Always show if business exists */}
+              {business && (
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold mb-2 text-gray-800">
+                    Business Details
+                  </h2>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <strong>Business ID:</strong> {business.id}
+                    </p>
+                    <p>
+                      <strong>Name:</strong> {business.business_name}
+                    </p>
+                    <p>
+                      <strong>Type:</strong> {business.business_type}
+                    </p>
+                    <p>
+                      <strong>Category:</strong> {business.category}
+                    </p>
+                    <p>
+                      <strong>Website:</strong> {business.website}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {business.email}
+                    </p>
+                    {business.phone ? (
+                      <p>
+                        <strong>Phone:</strong> {business.phone}
+                      </p>
+                    ) : business.mobile ? (
+                      <p>
+                        <strong>Mobile:</strong> {business.mobile}
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>Phone:</strong> N/A
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            <div className="border border-gray-300 rounded-[6px] p-5 bg-[#f8fff3] w-full mt-6 min-h-50">
-              {selectedCustomer ? (
+              {/* Special Prices and Addresses Section */}
+              {(customer || business) && (
                 <div className="space-y-4 text-sm">
-                  {/* Customer Details */}
-                  <ul className="space-y-2">
-                    <li>
-                      <strong>First Name:</strong>{" "}
-                      {selectedCustomer.first_name || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Middle Name:</strong>{" "}
-                      {selectedCustomer.middle_name || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Last Name:</strong>{" "}
-                      {selectedCustomer.last_name || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Email:</strong> {selectedCustomer.email || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Phone:</strong> {selectedCustomer.phone || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Mobile:</strong>{" "}
-                      {selectedCustomer.mobile || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Date of Birth:</strong>{" "}
-                      {selectedCustomer.dob || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Status:</strong>{" "}
-                      {selectedCustomer.is_active ? "Active" : "Inactive"}
-                    </li>
-                  </ul>
-
                   {/* Address Info */}
                   {(() => {
-                    const billing = selectedCustomer.addresses?.find(
-                      (addr) => addr.pivot?.type === "billing"
-                    );
-                    const shipping = selectedCustomer.addresses?.find(
-                      (addr) => addr.pivot?.type === "shipping"
-                    );
+                    const billing =
+                      selectedAddresses?.find(
+                        (addr) => addr.pivot?.type === "billing"
+                      ) ||
+                      allAddresses?.find(
+                        (addr) => addr.pivot?.type === "billing"
+                      );
+                    const shipping =
+                      selectedAddresses?.find(
+                        (addr) => addr.pivot?.type === "shipping"
+                      ) ||
+                      allAddresses?.find(
+                        (addr) => addr.pivot?.type === "shipping"
+                      );
 
                     return (
                       <>
@@ -1034,6 +1474,7 @@ const AddOrder = () => {
                           <h2 className="text-lg font-semibold mb-2 text-gray-800">
                             Special Prices
                           </h2>
+
                           {specialPrices.length > 0 ? (
                             <div className="space-y-3">
                               {specialPrices.map((item) => (
@@ -1044,59 +1485,195 @@ const AddOrder = () => {
                                   <input
                                     type="checkbox"
                                     name="selectedSpecialPrice"
-                                    value={item.id}
-                                    checked={selectedSpecialPriceIds.includes(item.id)}
-                                    onChange={() => handleSpecialPriceCheckbox(item.id)}
+                                    value={item.variant_id}
+                                    checked={selectedSpecialPriceIds.includes(
+                                      item.id
+                                    )}
+                                    onChange={() =>
+                                      handleSpecialPriceCheckbox(item.variant_id)
+                                    }
                                     className="mr-3"
                                   />
+
                                   <div className="flex-1">
                                     <p>
                                       <strong>Variant ID:</strong> {item.variant_id}
                                     </p>
                                     <p>
-                                      <strong>Special Price:</strong> £{item.special_price}
+                                      <strong>Special Price:</strong> £
+                                      {item.special_price}
                                     </p>
-                                    {selectedSpecialPriceIds.includes(item.id) && (
+
+                                    {selectedSpecialPriceIds.includes(
+                                      item.id
+                                    ) && (
                                       <div className="mt-4 p-4 border rounded bg-gray-50">
                                         <div className="flex items-end flex-wrap gap-6">
+                                          {/* Meter Range */}
+                                          {item?.uses_meter_range && (
+                                            <div className="flex flex-col gap-1">
+                                              <label className="text-black font-[500] text-sm">
+                                                Meter Range
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={`${item.meter_range_min} - ${item.meter_range_max}`}
+                                                readOnly
+                                                className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
+                                              />
+                                            </div>
+                                          )}
+
                                           {/* Price */}
                                           <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">Price</label>
+                                            <label className="text-black font-[500] text-sm">
+                                              Price
+                                            </label>
                                             <input
                                               type="number"
-                                              value={editedSpecialPrice[item.id]?.special_price ?? item.special_price ?? ""}
-                                              onChange={(e) => handleSpecialPriceChange("special_price", e.target.value, item)}
+                                              value={
+                                                editedSpecialPrice[item.id]
+                                                  ?.special_price ??
+                                                item.special_price ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "special_price",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
+
                                           {/* Discount */}
                                           <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">Discount</label>
+                                            <label className="text-black font-[500] text-sm">
+                                              Discount
+                                            </label>
                                             <input
                                               type="number"
-                                              value={editedSpecialPrice[item.id]?.variant_discount ?? item.variant_discount ?? ""}
-                                              onChange={(e) => handleSpecialPriceChange("variant_discount", e.target.value, item)}
+                                              value={
+                                                editedSpecialPrice[item.id]
+                                                  ?.variant_discount ??
+                                                item.variant_discount ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "variant_discount",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
                                               className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
+
                                           {/* Quantity */}
                                           <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">Quantity</label>
+                                            <label className="text-black font-[500] text-sm">
+                                              Quantity
+                                            </label>
                                             <input
                                               type="number"
-                                              value={editedSpecialPrice[item.id]?.quantity ?? item.quantity ?? ""}
-                                              onChange={(e) => handleSpecialPriceChange("quantity", e.target.value, item)}
-                                              className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
+                                              value={
+                                                editedSpecialPrice[item.id]
+                                                  ?.quantity ??
+                                                item.quantity ??
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                handleSpecialPriceChange(
+                                                  "quantity",
+                                                  e.target.value,
+                                                  item
+                                                )
+                                              }
+                                              className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                             />
                                           </div>
+
                                           {/* Total Price */}
                                           <div className="flex flex-col gap-1">
-                                            <label className="text-black font-[500] text-sm">Total Price</label>
+                                            <label className="text-black font-[500] text-sm">
+                                              Total Price
+                                            </label>
                                             <input
                                               type="number"
-                                              value={editedSpecialPrice[item.id]?.total_price ?? item.total_price ?? ""}
+                                              value={
+                                                editedSpecialPrice[item.id]
+                                                  ?.total_price ??
+                                                item.total_price ??
+                                                ""
+                                              }
                                               readOnly
                                               className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              VAT %
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={
+                                                formData?.order
+                                                  ?.vat_percentage ?? 0
+                                              }
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              VAT Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={
+                                                calculateIndividualSpecialPriceTotals(
+                                                  item,
+                                                  editedSpecialPrice[item.id]
+                                                ).vat_amount
+                                              }
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              Delivery Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={
+                                                formData?.order
+                                                  ?.delivery_amount ?? 0
+                                              }
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                              Payable Amount
+                                            </label>
+                                            <input
+                                              type="number"
+                                              value={
+                                                calculateIndividualSpecialPriceTotals(
+                                                  item,
+                                                  editedSpecialPrice[item.id]
+                                                ).payable_amount
+                                              }
+                                              readOnly
+                                              className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
                                             />
                                           </div>
                                         </div>
@@ -1107,7 +1684,9 @@ const AddOrder = () => {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500">No special prices found for this contact.</p>
+                            <p className="text-sm text-gray-500">
+                              No special prices found for this customer.
+                            </p>
                           )}
                         </div>
 
@@ -1202,175 +1781,226 @@ const AddOrder = () => {
                     );
                   })()}
                 </div>
-              ) : selectedBusiness ? (
-                <div>
-                  <ul className="space-y-2 text-sm mb-4">
-                    <li>
-                      <strong>Business Name:</strong>{" "}
-                      {selectedBusiness.business_name || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Business Type:</strong>{" "}
-                      {selectedBusiness.order_type || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Category:</strong>{" "}
-                      {selectedBusiness.category || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Email:</strong> {selectedBusiness.email || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Phone:</strong> {selectedBusiness.phone || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Mobile:</strong>{" "}
-                      {selectedBusiness.mobile || "N/A"}
-                    </li>
-                    <li>
-                      <strong>Website:</strong>{" "}
-                      {selectedBusiness.website || "N/A"}
-                    </li>
-                  </ul>
+              )}
 
-                  {selectedBusiness?.customers?.length === 1 ? (
-                    <div className="mb-4 text-sm">
-                      <h4 className="font-[700] text-md">Contact Details</h4>
-                      <p>
-                        <strong>ID:</strong> {selectedBusiness.customers[0].id}
-                      </p>
-                      <p>
-                        <strong>Name:</strong>{" "}
-                        {selectedBusiness.customers[0].name || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Email:</strong>{" "}
-                        {selectedBusiness.customers[0].email || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Phone:</strong>{" "}
-                        {selectedBusiness.customers[0].phone || "N/A"}
-                      </p>
-                    </div>
-                  ) : selectedBusiness?.customers?.length > 1 ? (
-                    <div className="text-sm mb-4">
-                      <h4 className="font-[700] text-md mb-2">Contact List</h4>
-                      {selectedBusiness.customers.map((customer) => (
-                        <div key={customer.id} className="mb-3">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="selectedCustomer"
-                              value={customer.id}
-                              checked={selectedCustomerId === customer.id}
-                              onChange={() =>
-                                setSelectedCustomerId(customer.id)
-                              }
-                            />
-                            <span className="flex gap-5">
-                              <span>
-                                <strong>ID:</strong> {customer.id} |{" "}
-                              </span>
-                              <span>
-                                <strong>Name:</strong> {customer.name || "N/A"}{" "}
-                                |{" "}
-                              </span>
-                              <span>
-                                <strong>Email:</strong>{" "}
-                                {customer.email || "N/A"} |{" "}
-                              </span>
-                              <span>
-                                <strong>Phone:</strong>{" "}
-                                {customer.phone || "N/A"}
-                              </span>
-                            </span>
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
+              {/* Business Special Prices Section - Only show if business exists and no customer special prices */}
+              {business &&
+                specialBusinessPrices.length > 0 &&
+                specialPrices.length === 0 && (
                   <div className="mt-4">
                     <h2 className="text-lg font-semibold mb-2 text-gray-800">
                       Business Special Prices
                     </h2>
-                    {specialBusinessPrices.length > 0 ? (
-                      <div className="space-y-3">
-                        {specialBusinessPrices.map((item) => (
-                          <div
-                            key={item.id}
-                            className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
-                          >
-                            <input
-                              type="checkbox"
-                              name="selectedBusinessSpecialPrice"
-                              value={item.id}
-                              checked={selectedBusinessSpecialPriceIds.includes(item.id)}
-                              onChange={() => handleBusinessSpecialPriceCheckbox(item.id)}
-                              className="mr-3"
-                            />
-                            <div className="flex-1">
-                              <p>
-                                <strong>Variant ID:</strong> {item.variant_id}
-                              </p>
-                              <p>
-                                <strong>Special Price:</strong> £{item.special_price}
-                              </p>
-                              {selectedBusinessSpecialPriceIds.includes(item.id) && (
-                                <div className="mt-4 p-4 border rounded bg-gray-50">
-                                  <div className="flex items-end flex-wrap gap-6">
-                                    {/* Price */}
+                    <div className="space-y-3">
+                      {specialBusinessPrices.map((item) => (
+                        <div
+                          key={item.id}
+                          className="border border-gray-300 rounded p-3 shadow-sm bg-white flex items-center"
+                        >
+                          <input
+                            type="checkbox"
+                            name="selectedBusinessSpecialPrice"
+                            value={item.variant_id}
+                            checked={selectedBusinessSpecialPriceIds.includes(
+                              item.variant_id
+                            )}
+                            onChange={() =>
+                              handleBusinessSpecialPriceCheckbox(item.variant_id)
+                            }
+                            className="mr-3"
+                          />
+                          <div className="flex-1">
+                            <p>
+                              <strong>Variant ID:</strong> {item.variant_id}
+                            </p>
+                            <p>
+                              <strong>Special Price:</strong> £
+                              {item.special_price}
+                            </p>
+                            {selectedBusinessSpecialPriceIds.includes(
+                              item.id
+                            ) && (
+                              <div className="mt-4 p-4 border rounded bg-gray-50">
+                                <div className="flex items-end flex-wrap gap-6">
+                                  {/* Meter Range */}
+                                  {item?.uses_meter_range && (
                                     <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">Price</label>
+                                      <label className="text-black font-[500] text-sm">
+                                        Meter Range
+                                      </label>
                                       <input
-                                        type="number"
-                                        value={editedBusinessSpecialPrice[item.id]?.special_price ?? item.special_price ?? ""}
-                                        onChange={(e) => handleBusinessSpecialPriceChange("special_price", e.target.value, item)}
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      />
-                                    </div>
-                                    {/* Discount */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">Discount</label>
-                                      <input
-                                        type="number"
-                                        value={editedBusinessSpecialPrice[item.id]?.variant_discount ?? item.variant_discount ?? ""}
-                                        onChange={(e) => handleBusinessSpecialPriceChange("variant_discount", e.target.value, item)}
-                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      />
-                                    </div>
-                                    {/* Quantity */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">Quantity</label>
-                                      <input
-                                        type="number"
-                                        value={editedBusinessSpecialPrice[item.id]?.quantity ?? item.quantity ?? ""}
-                                        onChange={(e) => handleBusinessSpecialPriceChange("quantity", e.target.value, item)}
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
-                                      />
-                                    </div>
-                                    {/* Total Price */}
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-black font-[500] text-sm">Total Price</label>
-                                      <input
-                                        type="number"
-                                        value={editedBusinessSpecialPrice[item.id]?.total_price ?? item.total_price ?? ""}
+                                        type="text"
+                                        value={`${item.meter_range_min} - ${item.meter_range_max}`}
                                         readOnly
-                                        className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-52"
                                       />
                                     </div>
+                                  )}
+                                  {/* Price */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-black font-[500] text-sm">
+                                      Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        editedBusinessSpecialPrice[item.id]
+                                          ?.special_price ??
+                                        item.special_price ??
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        handleBusinessSpecialPriceChange(
+                                          "special_price",
+                                          e.target.value,
+                                          item
+                                        )
+                                      }
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
+                                  </div>
+                                  {/* Discount */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-black font-[500] text-sm">
+                                      Discount
+                                    </label>
+                                    <input
+                                      type="number"
+                                      name="discount"
+                                      value={
+                                        editedBusinessSpecialPrice[item.id]
+                                          ?.variant_discount ??
+                                        item.variant_discount ??
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        handleBusinessSpecialPriceChange(
+                                          "variant_discount",
+                                          e.target.value,
+                                          item
+                                        )
+                                      }
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
+                                  </div>
+                                  {/* Quantity */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-black font-[500] text-sm">
+                                      Quantity
+                                    </label>
+                                    <input
+                                      type="number"
+                                      name="quantity"
+                                      value={
+                                        editedBusinessSpecialPrice[item.id]
+                                          ?.quantity ??
+                                        item.quantity ??
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        handleBusinessSpecialPriceChange(
+                                          "quantity",
+                                          e.target.value,
+                                          item
+                                        )
+                                      }
+                                      className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
+                                    />
+                                  </div>
+                                  {/* Total Price */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-black font-[500] text-sm">
+                                      Total Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        editedBusinessSpecialPrice[item.id]
+                                          ?.total_price ??
+                                        item.total_price ??
+                                        ""
+                                      }
+                                      readOnly
+                                      className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                      VAT %
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        formData?.order?.vat_percentage ?? 0
+                                      }
+                                      readOnly
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                      VAT Amount
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        calculateIndividualSpecialPriceTotals(
+                                          item,
+                                          editedBusinessSpecialPrice[item.id]
+                                        ).vat_amount
+                                      }
+                                      readOnly
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                      Delivery Amount
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        formData?.order?.delivery_amount ?? 0
+                                      }
+                                      readOnly
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                      Payable Amount
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={
+                                        calculateIndividualSpecialPriceTotals(
+                                          item,
+                                          editedBusinessSpecialPrice[item.id]
+                                        ).payable_amount
+                                      }
+                                      readOnly
+                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    />
                                   </div>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No special prices found for this business.</p>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                )}
 
+              {/* Business Addresses Section - Only show if business exists and no customer addresses */}
+              {business &&
+                selectedBusiness?.addresses &&
+                selectedBusiness.addresses.length > 0 &&
+                !selectedAddresses &&
+                !allAddresses && (
                   <div className="flex items-start gap-10 text-sm pt-5 border-t-1 border-gray-300">
                     {/* Billing Addresses */}
                     <label className="flex items-center gap-2 font-[500]">
@@ -1385,14 +2015,13 @@ const AddOrder = () => {
                       <h4 className="font-semibold underline mb-2">
                         Billing Addresses
                       </h4>
-                      {selectedBusiness.addresses &&
-                      selectedBusiness.addresses.filter(
+                      {selectedBusiness.addresses.filter(
                         (addr) => addr.address_type === "billing"
                       ).length > 0 ? (
                         selectedBusiness.addresses
                           .filter((addr) => addr.address_type === "billing")
                           .map((address, idx) => (
-                            <div className="flex gap-2 items-start">
+                            <div key={idx} className="flex gap-2 items-start">
                               <input
                                 type="radio"
                                 name="billing_address"
@@ -1400,7 +2029,7 @@ const AddOrder = () => {
                                 onChange={() => setBillingAddress(address.id)}
                               />
 
-                              <div key={idx} className="mb-3 ">
+                              <div className="mb-3">
                                 <strong>Address Line 1:</strong>{" "}
                                 {address.address_line1 || "N/A"} <br />
                                 <strong>Address Line 2:</strong>{" "}
@@ -1421,24 +2050,23 @@ const AddOrder = () => {
 
                     {/* Shipping Addresses */}
                     <div>
-                      <h4 className="font-semibold underline mb-2 ">
+                      <h4 className="font-semibold underline mb-2">
                         Shipping Addresses
                       </h4>
-                      {selectedBusiness.addresses &&
-                      selectedBusiness.addresses.filter(
+                      {selectedBusiness.addresses.filter(
                         (addr) => addr.address_type === "shipping"
                       ).length > 0 ? (
                         selectedBusiness.addresses
                           .filter((addr) => addr.address_type === "shipping")
                           .map((address, idx) => (
-                            <div className="flex gap-2 items-start">
+                            <div key={idx} className="flex gap-2 items-start">
                               <input
                                 type="radio"
                                 name="shipping_address"
                                 checked={shippingAddress === address.id}
                                 onChange={() => setShippingAddress(address.id)}
                               />
-                              <ul key={idx} className="">
+                              <ul className="">
                                 <li>
                                   <strong>Address Line 1:</strong>{" "}
                                   {address.address_line1 || "N/A"}
@@ -1466,8 +2094,7 @@ const AddOrder = () => {
                       )}
                     </div>
                   </div>
-                </div>
-              ) : null}
+                )}
             </div>
 
             {/* Manual Address Details start*/}
@@ -1576,9 +2203,23 @@ const AddOrder = () => {
                           className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                         />
                       </div>
+                      {/* <button
+              type="button"
+              onClick={() => removeAddress("billing_addresses", index)}
+              className="text-red-600 border-1 border-red-600 py-1 px-4 rounded-[6px] mt-4 cursor-pointer w-30"
+            >
+              Remove
+            </button> */}
                     </div>
                   </div>
                 ))}
+                {/* <button
+                type="button"
+                onClick={() => addAddress("billing_addresses")}
+                className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
+              >
+                Add Address
+              </button> */}
                 <div className="mt-3 pb-8 ">
                   <h2 className="mt-5 text-[18px] font-[500]">
                     Shipping Address
@@ -1706,6 +2347,13 @@ const AddOrder = () => {
                       </div>
                     </>
                   ))}
+                  {/* <button
+                  type="button"
+                  onClick={() => addAddress("shipping_addresses")}
+                  className="text-gray-900 border-1 border-gray-900 py-1 px-4 rounded-[6px] mt-4 cursor-pointer"
+                >
+                  Add Address
+                </button> */}
                 </div>
               </div>
             )}
@@ -1716,235 +2364,294 @@ const AddOrder = () => {
               <div className="flex flex-col gap-5">
                 {formData.items.map((product, index) => (
                   <div key={index} className="flex flex-col gap-6 w-full mt-6">
-                    {formData.items.length > 1 && index !== 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="bg-gray-100 py-2 px-4 w-30 text-red-500 hover:underline text-sm cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    )}
+                    <div className="flex items-end justify-between gap-5">
+                      <div className="flex gap-5">
+                        {/* Left: Product Dropdown */}
+                        <div className="w-full min-w-[250px] flex flex-col gap-2">
+                          <label
+                            className="text-sm font-[500]"
+                            htmlFor={`product_name_${index}`}
+                          >
+                            Product Name List
+                          </label>
+                          <div className="relative">
+                            <Select
+                              className="w-full"
+                              classNamePrefix="react-select"
+                              options={productOptionsFormatted}
+                              placeholder="Select Product Name"
+                              value={
+                                product.product_name
+                                  ? {
+                                      label: product.product_name,
+                                      value: product.product_name,
+                                    }
+                                  : null
+                              }
+                              onChange={(selectedOption) => {
+                                handleProductChange(
+                                  index,
+                                  "product_name",
+                                  selectedOption.value
+                                );
+                                handleProductChange(
+                                  index,
+                                  "product_id",
+                                  selectedOption.id
+                                );
+                              }}
+                            />
+                          </div>
+                        </div>
 
-                    <div className="flex gap-5">
-                      {/* Left: Product Dropdown */}
-                      <div className="w-1/3 flex flex-col gap-2">
-                        <label
-                          className="text-sm font-[500]"
-                          htmlFor={`product_name_${index}`}
-                        >
-                          Product Name List
-                        </label>
-
-                        <Select
-                          className="w-full"
-                          classNamePrefix="react-select"
-                          name="product_name"
-                          id={`product_name_${index}`}
-                          options={productOptionsFormatted}
-                          placeholder="Select Product Name"
-                          onChange={(selectedOption) => {
-                            handleProductChange(
-                              index,
-                              "product_name",
-                              selectedOption.label
-                            );
-                            handleProductChange(
-                              index,
-                              "product_id",
-                              selectedOption.value
-                            );
-                          }}
-                        />
+                        {productVariants[index] &&
+                          productVariants[index].length > 0 && (
+                            <div className="flex items-end gap-2 mt-2">
+                              {productVariants[index].map((variant) => (
+                                <button
+                                  key={variant.id}
+                                  type="button"
+                                  className={`px-3 py-2 rounded text-sm ${
+                                    selectedVariant[index]?.id === variant.id
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-200"
+                                  }`}
+                                  onClick={() =>
+                                    setSelectedVariant((prev) => ({
+                                      ...prev,
+                                      [index]: variant,
+                                    }))
+                                  }
+                                >
+                                  {variant.color_name ||
+                                    variant.sku ||
+                                    `Variant ${variant.id}`}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                       </div>
 
-                      {/* Right: Variant List */}
-                      {selectedVariant[index] && (
-                        <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
-                          <p className="font-semibold mb-1">Variant Details:</p>
+                      {formData.items.length > 1 && index !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="bg-red-400 rounded-md font-[500] py-2 px-4 w-24 text-white hover:underline hover:bg-red-600 text-sm cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {selectedVariant[index] && (
+                      <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
+                        <p className="font-semibold mb-1">Variant Details:</p>
 
-                          <div className="flex flex-col gap-2">
-                            <div className="flex gap-4">
-                              <p className="flex flex-col gap-1">
-                                <strong className="text-sm">Color:</strong>{" "}
-                                <input
-                                  type="text"
-                                  value={
-                                    selectedVariant[index].color_name || ""
-                                  }
-                                  className=" py-1 px-4 border border-gray-400 rounded bg-white"
-                                  readOnly
-                                />
-                              </p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-4">
+                            <p className="flex flex-col gap-1">
+                              <strong className="text-sm">Color:</strong>{" "}
+                              <input
+                                type="text"
+                                value={selectedVariant[index].color_name || ""}
+                                className="w-24 py-1 px-4 border border-gray-400 rounded bg-white"
+                                readOnly
+                              />
+                            </p>
 
-                              {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
-                              <div className="">
-                                <div className="flex items-end flex-wrap gap-6">
-                                  {/* Meter Range Section */}
-                                  <div className="flex flex-col gap-1">
-                                    {/* Selected Range Label */}
-                                    {selection[index]?.meterRangeId &&
-                                      (() => {
-                                        const selectedRange = meterOptions[
-                                          index
-                                        ]?.find(
-                                          (o) =>
-                                            o.id ===
-                                            selection[index].meterRangeId
-                                        );
-                                        return (
-                                          selectedRange && (
-                                            <span className="text-sm text-gray-600 min-w-[200px]">
-                                              Range:{" "}
-                                              <strong>
-                                                {selectedRange.range_label}
-                                              </strong>{" "}
-                                              ({selectedRange.min_meter}m -{" "}
-                                              {selectedRange.max_meter}m)
-                                            </span>
-                                          )
-                                        );
-                                      })()}
+                            {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
+                            <div className="">
+                              <div className="flex items-end flex-wrap gap-6">
+                                {/* Meter Range Section */}
+                                <div className="flex flex-col gap-1">
+                                  {/* Show message when no meter options available */}
+                                  {/* {(!meterOptions[index] || meterOptions[index].length === 0) && (
+                                    <span className="text-sm text-gray-500 min-w-[200px]">
+                                      {selectedVariant[index]?.use_meter_pricing === false 
+                                        ? "" 
+                                        : ""}
+                                    </span>
+                                  )} */}
 
-                                    {/* Dropdown */}
-                                    <select
-                                      className="bg-white rounded px-2 py-1 w-52 border"
-                                      value={
-                                        selection[index]?.meterRangeId || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleSelectionChange(
-                                          index,
-                                          "meterRangeId",
-                                          parseInt(e.target.value)
-                                        )
-                                      }
-                                    >
-                                      <option value="">Select Range</option>
-                                      {meterOptions[index]?.map((opt) => (
-                                        <option key={opt.id} value={opt.id}>
-                                          {opt.range_label} ({opt.min_meter}m -{" "}
-                                          {opt.max_meter}m)
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-
-                                  {/* Price */}
-                                  <div className="flex flex-col gap-1">
-                                    <label
-                                      className="text-black font-[500] text-sm"
-                                      htmlFor="Price"
-                                    >
-                                      Price
-                                    </label>
-                                    <input
-                                      type="number"
-                                      id={`price-${index}`}
-                                      placeholder="price"
-                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      value={selection[index]?.price || ""}
-                                      onChange={(e) =>
-                                        handleSelectionChange(
-                                          index,
-                                          "price",
-                                          e.target.value
-                                        )
-                                      }
-                                      readOnly
-                                    />
-                                  </div>
-
-                                  {/* Discount */}
-                                  <div className="flex flex-col gap-1">
-                                    <label
-                                      className="text-black font-[500] text-sm"
-                                      htmlFor="Discount"
-                                    >
-                                      Discount
-                                    </label>
-                                    <input
-                                      type="number"
-                                      id={`discount-${index}`}
-                                      placeholder="discount"
-                                      className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                      value={selection[index]?.discount || ""}
-                                      onChange={(e) =>
-                                        handleSelectionChange(
-                                          index,
-                                          "discount",
-                                          e.target.value
-                                        )
-                                      }
-                                      readOnly
-                                    />
-                                  </div>
-
-                                  {/* Quantity Input - Bound to selected range */}
-                                  <div className="flex flex-col gap-1">
-                                    <label
-                                      className="text-black font-[500] text-sm"
-                                      htmlFor="Final Price"
-                                    >
-                                      Quantity
-                                    </label>
-                                    {(() => {
+                                  {/* Selected Range Label */}
+                                  {selection[index]?.meter_range_id != null &&
+                                    meterOptions[index]?.length > 0 &&
+                                    (() => {
                                       const selectedRange = meterOptions[
                                         index
                                       ]?.find(
                                         (o) =>
-                                          o.id ===
-                                          selection[index]?.meterRangeId
+                                          o.meter_rangeid ===
+                                          selection[index].meter_range_id
                                       );
-
-                                      const minQty = selectedRange
-                                        ? Math.ceil(
-                                            parseFloat(selectedRange.min_meter)
-                                          )
-                                        : 0;
-                                      const maxQty = selectedRange
-                                        ? Math.floor(
-                                            parseFloat(selectedRange.max_meter)
-                                          )
-                                        : Infinity;
-
                                       return (
-                                        <input
-                                          type="number"
-                                          className="border border-gray-300 px-2 bg-white py-1 rounded min-w-[100px]"
-                                          placeholder={`quantity`}
-                                          min={minQty}
-                                          max={maxQty}
-                                          value={formData.items[index].quantity}
-                                          onChange={(e) => {
-                                            const input = e.target.value;
+                                        selectedRange && (
+                                          <span className="text-sm text-gray-600 min-w-[200px]">
+                                            Range:{" "}
+                                            <strong>
+                                              {selectedRange.range_label}
+                                            </strong>{" "}
+                                            ({selectedRange.min_meters}m -{" "}
+                                            {selectedRange.max_meters}m)
+                                          </span>
+                                        )
+                                      );
+                                    })()}
 
-                                            // Allow empty input for smoother typing
-                                            if (
-                                              input === "" ||
-                                              /^\d+$/.test(input)
-                                            ) {
-                                              const updatedItems = [
-                                                ...formData.items,
-                                              ];
-                                              updatedItems[index].quantity =
-                                                input;
-                                              setFormData((prev) => ({
-                                                ...prev,
-                                                items: updatedItems,
-                                              }));
-                                            }
-                                          }}
-                                          onBlur={(e) => {
-                                            let quantity =
-                                              parseInt(e.target.value) || 0;
+                                  {/* Dropdown - Only show if meter options exist */}
 
-                                            // Clamp on blur
-                                            if (quantity < minQty)
-                                              quantity = minQty;
-                                            if (quantity > maxQty)
-                                              quantity = maxQty;
+                                  {meterOptions[index] &&
+                                    meterOptions[index].length > 0 && (
+                                      <div className="relative">
+                                        <select
+                                          className="bg-white rounded  appearance-none px-2 py-1 w-52 border"
+                                          value={
+                                            selection[index]?.meter_range_id ??
+                                            ""
+                                          }
+                                          onChange={(e) =>
+                                            handleSelectionChange(
+                                              index,
+                                              "meter_range_id",
+                                              parseInt(e.target.value)
+                                            )
+                                          }
+                                        >
+                                          <option value="">
+                                            Select Meter Range
+                                          </option>
+                                          {meterOptions[index]?.map((opt) => (
+                                            <option
+                                              key={opt.meter_range_id}
+                                              value={opt.meter_range_id}
+                                            >
+                                              {opt.range_label} (
+                                              {opt.min_meters}m -{" "}
+                                              {opt.max_meters}m)
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {/* Custom dropdown arrow */}
+                                        <div className="pointer-events-none absolute inset-y-0 -top-0 -right-1 flex items-center px-3 text-gray-500">
+                                          <svg
+                                            className="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M19 9l-7 7-7-7"
+                                            />
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    )}
+                                </div>
 
+                                {/* Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Price"
+                                  >
+                                    Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`price-${index}`}
+                                    placeholder="price"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    value={selection[index]?.price || ""}
+                                    onChange={(e) =>
+                                      handleSelectionChange(
+                                        index,
+                                        "price",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                </div>
+
+                                {/* Discount */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Discount"
+                                  >
+                                    Discount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id={`discount-${index}`}
+                                    placeholder="discount"
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                    value={selection[index]?.discount || ""}
+                                    onChange={(e) =>
+                                      handleSelectionChange(
+                                        index,
+                                        "discount",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                </div>
+
+                                {/* Quantity Input - Bound to selected range */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Final Price"
+                                  >
+                                    Quantity
+                                  </label>
+                                  {(() => {
+                                    const selectedRange = meterOptions[
+                                      index
+                                    ]?.find(
+                                      (o) =>
+                                        o.id ===
+                                        selection[index]?.meter_range_id
+                                    );
+
+                                    // If no meter options or no range selected, allow any quantity
+                                    const minQty = selectedRange
+                                      ? Math.ceil(
+                                          parseFloat(selectedRange.min_meter)
+                                        )
+                                      : 1; // Default minimum of 1
+                                    const maxQty = selectedRange
+                                      ? Math.floor(
+                                          parseFloat(selectedRange.max_meter)
+                                        )
+                                      : Infinity;
+
+                                    return (
+                                      <input
+                                        type="number"
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
+                                        placeholder={`quantity`}
+                                        min={minQty}
+                                        max={maxQty}
+                                        value={formData.items[index].quantity}
+                                        onChange={(e) => {
+                                          const input = e.target.value;
+
+                                          // Allow empty input for smoother typing
+                                          if (
+                                            input === "" ||
+                                            /^\d+$/.test(input)
+                                          ) {
+                                            const updatedItems = [
+                                              ...formData.items,
+                                            ];
+                                            updatedItems[index].quantity =
+                                              input;
+
+                                            // Calculate total price in real-time
+                                            const quantity =
+                                              parseInt(input) || 0;
                                             const finalPrice =
                                               parseFloat(
                                                 selection[index]?.finalPrice
@@ -1952,198 +2659,130 @@ const AddOrder = () => {
                                             const totalPrice =
                                               quantity * finalPrice;
 
-                                            const updatedItems = [
-                                              ...formData.items,
-                                            ];
-                                            updatedItems[index].quantity =
-                                              quantity;
                                             updatedItems[index].total_price =
                                               totalPrice;
 
-                                            setFormData((prev) => ({
-                                              ...prev,
-                                              items: updatedItems,
-                                            }));
-                                          }}
-                                        />
-                                      );
-                                    })()}
-                                  </div>
+                                            // Use unified calculation
+                                            updateOrderTotals(updatedItems);
+                                          }
+                                        }}
+                                        onBlur={(e) => {
+                                          let quantity =
+                                            parseInt(e.target.value) || 0;
 
-                                  {/* Total Price */}
-                                  <div className="flex flex-col gap-1">
-                                    <label
-                                      className="text-black font-[500] text-sm"
-                                      htmlFor="Total Price"
-                                    >
-                                      Total Price
-                                    </label>
-                                    <input
-                                      type="number"
-                                      placeholder="total price"
-                                      readOnly
-                                      className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                      value={
-                                        formData.items[index].total_price !==
-                                        undefined
-                                          ? formData.items[index].total_price
-                                          : ""
-                                      }
-                                    />
-                                  </div>
+                                          // Clamp on blur
+                                          if (quantity < minQty)
+                                            quantity = minQty;
+                                          if (quantity > maxQty)
+                                            quantity = maxQty;
+
+                                          const finalPrice =
+                                            parseFloat(
+                                              selection[index]?.finalPrice
+                                            ) || 0;
+                                          const totalPrice =
+                                            quantity * finalPrice;
+
+                                          const updatedItems = [
+                                            ...formData.items,
+                                          ];
+                                          updatedItems[index].quantity =
+                                            quantity;
+                                          updatedItems[index].total_price =
+                                            totalPrice;
+
+                                          // Use unified calculation
+                                          updateOrderTotals(updatedItems);
+                                        }}
+                                      />
+                                    );
+                                  })()}
+                                </div>
+
+                                {/* Total Price */}
+                                <div className="flex flex-col gap-1">
+                                  <label
+                                    className="text-black font-[500] text-sm"
+                                    htmlFor="Total Price"
+                                  >
+                                    Total Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="total price"
+                                    readOnly
+                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
+                                    value={
+                                      formData.items[index].total_price !==
+                                      undefined
+                                        ? formData.items[index].total_price
+                                        : ""
+                                    }
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    VAT %
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={formData?.order?.vat_percentage ?? 0}
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    VAT Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={
+                                      calculateIndividualProductTotals(index)
+                                        .vat_amount
+                                    }
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    Delivery Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={
+                                      formData?.order?.delivery_amount ?? 0
+                                    }
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">
+                                    Payable Amount
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={
+                                      calculateIndividualProductTotals(index)
+                                        .payable_amount
+                                    }
+                                    readOnly
+                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
+                                  />
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
-
-                {/* Final Price */}
-                {/* <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Final Price"
-                                  >
-                                    Final Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`final-price-${index}`}
-                                    placeholder="final price"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-32 text-green-700"
-                                    value={selection[index]?.finalPrice || ""}
-                                    readOnly
-                                  />
-                                </div> */}
-
-                {/* <div className="flex flex-col gap-1">
-                                <label className="text-black font-[500] text-sm" htmlFor="Final Price">
-                                  Quantity
-                                </label>
-                              <input
-                                type="number"
-                                className="border border-gray-300 px-2 bg-white py-1 rounded"
-                                placeholder="quantity"
-                                value={formData.items[index].quantity}
-                               onChange={(e) => {
-                                  const quantity = parseInt(e.target.value) || 0;
-                                  const finalPrice = parseFloat(selection[index]?.finalPrice) || 0;
-                                  const totalPrice = quantity * finalPrice;
-
-                                  const updatedItems = [...formData.items];
-                                  updatedItems[index].quantity = quantity;
-                                  updatedItems[index].total_price = totalPrice;
-
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    items: updatedItems,
-                                  }));
-                                }}
-
-                                />
-                                </div> */}
-
-                {/* <p className="flex flex-col gap-1">
-                              <strong className="text-sm">Discount:</strong>{" "}
-                              <input
-                                type="number"
-                                placeholder="Enter discount"
-                                value={selectedVariant[index]?.discount || ""}
-                                onChange={(e) =>
-                                  handleVariantFieldChange(
-                                    index,
-                                    "discount_applied",
-                                    e.target.value
-                                  )
-                                }
-                                className="py-1 px-4 border border-gray-400 rounded bg-white"
-                              />
-                            </p> */}
-
-                {/* <p className="font-bold mt-4">Sizes:</p>
-                          <div className="space-y-3">
-                            {selectedVariant[index].inventories.map((inv) => (
-                              <div
-                                key={inv.inventory_id}
-                                className="flex items-center gap-3"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    selectedSizes[index]?.includes(
-                                      inv.size_id
-                                    ) || false
-                                  }
-                                  onChange={() =>
-                                    handleSizeCheckboxToggle(index, inv.size_id)
-                                  }
-                                  className="w-4 h-4 cursor-pointer"
-                                />
-                                <label className="font-medium">
-                                  {inv.size_label}
-                                </label>
-                                <input
-                                  type="number"
-                                  placeholder="Enter Quantity"
-                                  value={
-                                    selectedSizes[index]?.includes(inv.size_id)
-                                      ? quantities[index]?.[inv.size_id] || ""
-                                      : ""
-                                  }
-                                  onChange={(e) =>
-                                    handleQuantityChange(
-                                      index,
-                                      inv.size_id,
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={
-                                    !selectedSizes[index]?.includes(inv.size_id)
-                                  }
-                                  className="py-[5px] px-3 text-sm border border-gray-400 bg-white rounded w-36"
-                                />
-                              </div>
-                            ))}
-                          </div> */}
-
-                {/* <div className="mt-4 p-3 border-1 border-gray-400 rounded bg-white">
-                          <p className="">
-                            <strong className="mr-4">Price:</strong> £
-                            {selectedVariant[index]?.price_per_unit || 0}
-                          </p>
-                          <p className="font-[500]">
-                            <strong className="mr-4">Sizes:</strong>{" "}
-                            {selectedSizes[index]
-                              ?.map((sizeId) => {
-                                const inv = selectedVariant[
-                                  index
-                                ]?.inventories?.find(
-                                  (i) => i.size_id === sizeId
-                                );
-                                const qty = quantities[index]?.[sizeId] || 0;
-                                return `${inv?.size_label}: qty. ${qty}`;
-                              })
-                              .join("  |  ")}
-                          </p>
-                          <p className="font-bold mt-2 text-green-600 border-t-1 border-gray-300 py-1">
-                            <span className="text-black">Total Amount:</span> £
-                            {(() => {
-                              const price = Number(
-                                selectedVariant[index]?.price_per_unit || 0
-                              );
-                              const totalQty = selectedSizes[index]?.reduce(
-                                (sum, sizeId) =>
-                                  sum +
-                                  Number(quantities[index]?.[sizeId] || 0),
-                                0
-                              );
-                              return price * totalQty || 0;
-                            })()}
-                          </p>
-                        </div> */}
 
                 {/* ─── 19) ADD MORE BUTTON BELOW ALL ITEMS ───────────────────────────────── */}
                 <div className="">
@@ -2182,7 +2821,7 @@ const AddOrder = () => {
                       className="py-2 px-4 border-1 appearance-none border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%] cursor-pointer"
                     >
                       <option value="" selected disabled>
-                        Select Business Type
+                        Select Payment Method
                       </option>
                       <option value="Credit card">Credit card</option>
                       <option value="Direct debit">Direct debit</option>
@@ -2232,328 +2871,4 @@ const AddOrder = () => {
   );
 };
 
-export default AddOrder;
-
-{
-  /* Address Details start*/
-}
-// <div className="border-t-1 border-gray-300 py-10">
-//   <h1 className="text-[20px] font-[500]">Address</h1>
-//   {selectedBusiness && (
-//     <>
-//       <div className="mt-3">
-//         {/* Billing Address */}
-//         <h2 className="mt-5 text-[18px] font-[500]">
-//           Billing Address
-//         </h2>
-//         {selectedBusiness.addresses
-//           ?.filter((addr) => addr.address_type === "billing")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-
-//         {/* Shipping Address */}
-//         <h2 className="mt-10 text-[18px] font-[500]">
-//           Shipping Address
-//         </h2>
-//         {selectedBusiness.addresses
-//           ?.filter((addr) => addr.address_type === "shipping")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-//       </div>
-
-//       <button
-//         type="button"
-//         onClick={handleToggleButton}
-//         className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition mt-5 cursor-pointer"
-//       >
-//         {showAddressSection ? <span>Remove New Address</span> : <span>Add New Address</span> }
-
-//       </button>
-//     </>
-//   )}
-
-//   {selectedCustomer && (
-//     <>
-//       <div className="mt-3">
-//         {/* Billing Address */}
-//         <h2 className="mt-5 text-[18px] font-[500]">
-//           Billing Address
-//         </h2>
-//         {selectedCustomer.addresses
-//           ?.filter((addr) => addr.pivot?.type === "billing")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] placeholder:text-[#969696] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-
-//         {/* Shipping Address */}
-//         <h2 className="mt-10 text-[18px] font-[500]">
-//           Shipping Address
-//         </h2>
-//         {selectedCustomer.addresses
-//           ?.filter((addr) => addr.pivot?.type === "shipping")
-//           .map((addr, index) => (
-//             <div key={index}>
-//               <div className="w-full grid md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 1
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line1 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Address Line 2
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.address_line2 || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6">
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     City
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.city || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Postal Code
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.postal_code || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//                 <div className="flex flex-col gap-2">
-//                   <label className="font-[500] text-gray-700">
-//                     Country
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={addr.country || ""}
-//                     readOnly
-//                     className="py-2 px-4 border-1 border-[#C5C5C5] bg-gray-100 rounded-[8px] w-full"
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-//           ))}
-//       </div>
-
-//
-//       <button
-//         type="button"
-//         onClick={handleToggleButton}
-//         className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition mt-5 cursor-pointer"
-//       >
-//          {showAddressSection ? <span>Remove New Address</span> : <span>Add New Address</span> }
-//       </button>
-//     </>
-//   )}
-// </div>
-
-{
-  /* Address Details ends*/
-}
+export default AddOrderAuto;
