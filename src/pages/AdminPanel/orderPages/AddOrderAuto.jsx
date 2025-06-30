@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import Select from "react-select";
+import { toast } from "react-toastify";
+import API from "../../../api/API";
 
 const AddOrderAuto = () => {
   const navigate = useNavigate();
@@ -249,8 +250,8 @@ const AddOrderAuto = () => {
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/products")
+    API
+      .get("/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -275,8 +276,8 @@ const AddOrderAuto = () => {
 
     if (selectedProduct) {
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
+        const res = await API.get(
+          `/api/product/${selectedProduct.id}/variants`
         );
 
         if (res.data.success) {
@@ -515,8 +516,8 @@ const AddOrderAuto = () => {
     }));
 
     if (selectedType === "b2b") {
-      axios
-        .get("https://britishquilting.fastranking.cloud/api/businesses")
+      API
+        .get("/api/businesses")
         .then((res) => {
           if (res.data.status) {
             setBusinessList(res.data.data);
@@ -524,8 +525,8 @@ const AddOrderAuto = () => {
         })
         .catch((err) => console.error(err));
     } else if (selectedType === "b2c") {
-      axios
-        .get("https://britishquilting.fastranking.cloud/api/customers")
+      API
+        .get("/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -546,8 +547,8 @@ const AddOrderAuto = () => {
     const fetchCustomerDetails = async () => {
       if (!formData.customer_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}`
+        const res = await API.get(
+          `/api/customer/${formData.customer_id}`
         );
         setSelectedCustomer(res.data?.data || null);
       } catch (err) {
@@ -564,8 +565,8 @@ const AddOrderAuto = () => {
     const fetchCustomerSpecialPrices = async () => {
       if (!formData.customer_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices-new`
+        const res = await API.get(
+          `/api/customer/${formData.customer_id}/special-prices-new`
         );
         setSpecialPrices(res.data?.data || []);
       } catch (err) {
@@ -584,8 +585,8 @@ const AddOrderAuto = () => {
     const fetchBusinessDetails = async () => {
       if (!formData.business_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}`
+        const res = await API.get(
+          `/api/business/${formData.business_id}`
         );
         setSelectedBusiness(res.data?.data || null);
       } catch (err) {
@@ -602,8 +603,8 @@ const AddOrderAuto = () => {
     const fetchBusinessSpecialPrices = async () => {
       if (!formData.business_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices-new`
+        const res = await API.get(
+          `/api/business/${formData.business_id}/special-prices-new`
         );
         setSpecialBusinessPrices(res.data?.data || []);
       } catch (err) {
@@ -1049,8 +1050,8 @@ const AddOrderAuto = () => {
         item.quantity?.toString().trim() !== ""
     );
 
-    if (!hasAtLeastOneProduct) {
-      alert("Please fill all product fields before submitting.");
+     if (!hasAtLeastOneProduct) {
+      toast.error("Please choose atleast one product before submitting.");
       return;
     }
 
@@ -1175,14 +1176,14 @@ const AddOrderAuto = () => {
     }
 
     // ─── Submit ───────────────────────────────────────────────
-    axios
+    API
       .post(
-        "https://britishquilting.fastranking.cloud/api/new-order-new-latest",
+        "/api/new-order-new-latest",
         finalPayload
       )
       .then((res) => {
         if (res.status === 200 || res.status === 201) {
-          alert("Order submitted successfully!");
+          toast.success('Order Placed Successfully!');
 
           // Reset form
           setFormData({
@@ -1490,7 +1491,7 @@ const AddOrderAuto = () => {
                                       item.id
                                     )}
                                     onChange={() =>
-                                      handleSpecialPriceCheckbox(item.variant_id)
+                                      handleSpecialPriceCheckbox(item.id)
                                     }
                                     className="mr-3"
                                   />
@@ -1802,10 +1803,10 @@ const AddOrderAuto = () => {
                             name="selectedBusinessSpecialPrice"
                             value={item.variant_id}
                             checked={selectedBusinessSpecialPriceIds.includes(
-                              item.variant_id
+                              item.id
                             )}
                             onChange={() =>
-                              handleBusinessSpecialPriceCheckbox(item.variant_id)
+                              handleBusinessSpecialPriceCheckbox(item.id)
                             }
                             className="mr-3"
                           />

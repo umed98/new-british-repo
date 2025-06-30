@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import API from "../../../api/API";
 
 const OrderDisplay = () => {
   const [data, setData] = useState([]);
@@ -20,9 +21,7 @@ const OrderDisplay = () => {
   useEffect(() => {
     const getData = async () => {
       try {
-        const api = await axios.get(
-          "https://britishquilting.fastranking.cloud/api/orders"
-        );
+        const api = await API.get("/api/orders");
         console.log("Fetched data:", api.data.orders);
         setData(api.data.orders);
       } catch (error) {
@@ -40,11 +39,7 @@ const OrderDisplay = () => {
   const handleNewNavigate = () => {
     navigate(`/add-order`);
   };
-
-  const handleNavigate = (id) => {
-    console.log(id, "this is the id")
-    navigate(`/order-detail-new/${id}`);
-  };
+ 
 
   // Helpers
   const parsePrice = (price) => parseFloat(price.replace(/[^0-9.]/g, "")) || 0;
@@ -133,28 +128,6 @@ const OrderDisplay = () => {
 
   /* ---------------------------Payment_status and Status Update API---------------------------- */
 
-  // const handleStatusUpdate = async (orderId, newStatus) => {
-  //   try {
-  //     const response = await axios.put(
-  //       `https://britishquilting.fastranking.cloud/api/orders/${orderId}/status`,
-  //       { status: newStatus }
-  //     );
-
-  //     if (response.data.status) {
-  //       toast.success("Order status updated successfully!");
-  //       // Optionally update local state here
-  //     } else {
-  //       toast.error(response.data.message || "Failed to update order status.");
-  //     }
-  //   } catch (error) {
-  //     console.error("Update Error:", error);
-  //     toast.error(
-  //       error.response?.data?.message ||
-  //         "Something went wrong while updating the order status."
-  //     );
-  //   }
-  // };
-  // 2) When user changes status, call the API AND update local state
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
       const response = await axios.put(
@@ -380,7 +353,7 @@ const OrderDisplay = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] cursor-pointer">
+                {/* <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] cursor-pointer">
                   Import
                 </button>
                 <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] flex items-center gap-1 cursor-pointer">
@@ -399,7 +372,7 @@ const OrderDisplay = () => {
                     />
                   </svg>
                   Export
-                </button>
+                </button> */}
                 <button
                   onClick={handleNewNavigate}
                   className="font-[600] text-white rounded-[4px] bg-[#4B215F] text-[12px] lg:text-[14px] py-2 px-4 lg:h-[40px] flex items-center gap-1 cursor-pointer"
@@ -428,12 +401,10 @@ const OrderDisplay = () => {
                       ["order_id", "Order ID"],
                       ["customer_name", "Customer Name"],
                       ["order_date", "Order Date"],
-                      // ["quantity", "Quantity"],
                       ["total_amount", "Total Amount"],
                       ["payment_method", "Payment Method"],
                       ["status", "Order Status"],
                       ["created_at", "Created At"],
-                      // ["updated_at", "Updated At"],
                       ["action", "Action"],
                     ].map(([key, label]) => (
                       <th
@@ -536,10 +507,7 @@ const OrderDisplay = () => {
                   >
                     Pending
                   </option>
-                  <option
-                    value="completed"
-                    className="bg-green-100 text-green-700"
-                  >
+                  <option value="completed" className="bg-green-100 text-green-700" >
                     Completed
                   </option>
                   <option
@@ -568,135 +536,14 @@ const OrderDisplay = () => {
                 </div>
               </div>
             </td>
-
-                        {/* <td className="p-3 px-6 whitespace-nowrap">
-                          <div className="relative w-full">
-                            <select
-                              value={row.order_status}
-                              onChange={
-                                (e) =>
-                                  handleStatusUpdate(row.order_id, e.target.value) // Make sure to pass row.id, not customer_id
-                              }
-                              className={`appearance-none ${
-                                row.order_status === "completed"
-                                  ? "bg-green-100 text-green-600"
-                                  : row.order_status === "pending"
-                                  ? "bg-yellow-100 text-yellow-600"
-                                  : row.order_status === "cancel"
-                                  ? "bg-red-100 text-red-600"
-                                  : ""
-                              } rounded-full px-3 pr-8 py-1 text-[12px]`}
-                            >
-                              <option
-                                value="pending"
-                                className="bg-yellow-100 text-yellow-700"
-                              >
-                                Pending
-                              </option>
-                              <option
-                                value="completed"
-                                className="bg-green-100 text-green-700"
-                              >
-                                Completed
-                              </option>
-                              <option
-                                value="cancel"
-                                className="bg-red-100 text-red-700"
-                              >
-                                Cancel
-                              </option>
-                            </select>
-
-                           
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </td> */}
-
-                        {/* <td className="p-3 px-6 whitespace-nowrap">
-                          <div className="relative w-full">
-                            <select
-                              value={row.payment_status}
-                              onChange={(e) =>
-                                handleStatusUpdate(
-                                  row.order_id,
-                                  "payment_status",
-                                  e.target.value
-                                )
-                              }
-                              className={` appearance-none pr-8 rounded-full px-3 py-1 text-[12px] ${
-                                row.payment_status === "completed"
-                                  ? "bg-green-100 text-green-600"
-                                  : row.payment_status === "pending"
-                                  ? "bg-yellow-100 text-yellow-600"
-                                  : row.payment_status === "cancel"
-                                  ? "bg-red-100 text-red-600"
-                                  : ""
-                              }`}
-                            >
-                              <option
-                                className="bg-yellow-100 text-yellow-700"
-                                value="pending"
-                              >
-                                Pending
-                              </option>
-                              <option
-                                className="bg-green-100 text-green-700"
-                                value="completed"
-                              >
-                                Completed
-                              </option>
-                              <option
-                                className="bg-red-100 text-red-700"
-                                value="cancel"
-                              >
-                                Cancel
-                              </option>
-                            </select>
-
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </td> */}
-
+  
                         <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
                           {row.created_at}
                         </td>
-                        {/* <td className="p-3 px-6 w-50 max-w-50 truncate whitespace-nowrap overflow-hidden">
-                          {row.updated_at}
-                        </td> */}
+                       
                         <td className="p-3 px-6  whitespace-nowrap">
-                          <div
-                            onClick={() => handleNavigate(row.order_id)}
-                            className="flex gap-2"
-                          >
-                            <button className="cursor-pointer">
+                          <div  className="flex gap-2" >
+                            <Link to={`/order-detail-new/${row.order_id}`} className="cursor-pointer">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="28"
@@ -712,7 +559,7 @@ const OrderDisplay = () => {
                                   d="M16 10a6 6 0 1 0 6 6a6 6 0 0 0-6-6m0 10a4 4 0 1 1 4-4a4 4 0 0 1-4 4"
                                 />
                               </svg>
-                            </button>
+                            </Link>
                           </div>
                         </td>
                       </tr>

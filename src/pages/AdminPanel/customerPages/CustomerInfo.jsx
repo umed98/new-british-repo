@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
+import API from "../../../api/API";
+import { toast } from "react-toastify";
 
 const CustomerInfo = () => {
   const { id } = useParams(); // gets the ID from URL
@@ -17,8 +18,8 @@ const CustomerInfo = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios
-      .get(`https://britishquilting.fastranking.cloud/api/customer/${id}`)
+    API
+      .get(`/api/customer/${id}`)
       .then((response) => {
         setCustomer(response.data.data.customer);
         setLoading(false);
@@ -34,8 +35,8 @@ const CustomerInfo = () => {
     if (id) {
       const fetchCustomerSpecialPrices = async () => {
         try {
-          const response = await axios.get(
-            `https://britishquilting.fastranking.cloud/api/customer/${id}/special-prices-new`
+          const response = await API.get(
+            `/api/customer/${id}/special-prices-new`
           );
           setSpecialPrice(response.data?.data || []);
         } catch (error) {
@@ -53,8 +54,8 @@ const CustomerInfo = () => {
   //     const fetchBusinessSpecialPrices = async () => {
   //       try {
   //         const businessId = customer.businesses[0].id; // Assuming first business
-  //         const response = await axios.get(
-  //           `https://britishquilting.fastranking.cloud/api/business/${businessId}/special-prices-new`
+  //         const response = await API.get(
+  //           `/api/business/${businessId}/special-prices-new`
   //         );
   //         setBusinessSpecialPrices(response.data?.data || []);
   //       } catch (error) {
@@ -104,16 +105,23 @@ const CustomerInfo = () => {
       selectedSpecialPriceIds.has(sp.id)
     );
 
-    // Optional guard: insist on at least one address + a special price
-    if (chosenAddresses.length === 0) {
-      alert("Please select at least one address first.");
+    // Require at least one billing and one shipping address
+    const hasBilling = chosenAddresses.some(a => a.pivot && a.pivot.type === "billing");
+    const hasShipping = chosenAddresses.some(a => a.pivot && a.pivot.type === "shipping");
+    if (!hasBilling) {
+      toast.error("Please select at least one billing address.");
+      return;
+    }
+    if (!hasShipping) {
+      toast.error("Please select at least one shipping address.");
       return;
     }
 
-    if (chosenSpecialPrices.length === 0) {
-      alert("Please select at least one special price first.");
-      return;
-    }
+
+    // if (chosenSpecialPrices.length === 0) {
+    //   alert("Please select at least one special price first.");
+    //   return;
+    // }
 
     // Prepare comprehensive data to send to AddOrderAuto
     const orderData = {

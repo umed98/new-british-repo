@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
+import { toast } from 'react-toastify';
+import API from "../../../api/API";
 
 const AddOrder = () => {
   const navigate = useNavigate();
@@ -89,8 +90,8 @@ const AddOrder = () => {
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/products")
+    API
+      .get("/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -115,8 +116,8 @@ const AddOrder = () => {
 
     if (selectedProduct) {
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/product/${selectedProduct.id}/variants`
+        const res = await API.get(
+          `/api/product/${selectedProduct.id}/variants`
         );
 
         if (res.data.success) {
@@ -355,8 +356,8 @@ const AddOrder = () => {
     }));
 
     if (selectedType === "b2b") {
-      axios
-        .get("https://britishquilting.fastranking.cloud/api/businesses")
+      API
+        .get("/api/businesses")
         .then((res) => {
           if (res.data.status) {
             setBusiness(res.data.data);
@@ -364,8 +365,8 @@ const AddOrder = () => {
         })
         .catch((err) => console.error(err));
     } else if (selectedType === "b2c") {
-      axios
-        .get("https://britishquilting.fastranking.cloud/api/customers")
+      API
+        .get("/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -386,8 +387,8 @@ const AddOrder = () => {
     const fetchCustomerDetails = async () => {
       if (!formData.customer_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}`
+        const res = await API.get(
+          `/api/customer/${formData.customer_id}`
         );
         setSelectedCustomer(res.data?.data || null);
       } catch (err) {
@@ -404,8 +405,8 @@ const AddOrder = () => {
     const fetchCustomerSpecialPrices = async () => {
       if (!formData.customer_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/customer/${formData.customer_id}/special-prices-new`
+        const res = await API.get(
+          `/api/customer/${formData.customer_id}/special-prices-new`
         );
         setSpecialPrices(res.data?.data || []);
       } catch (err) {
@@ -424,8 +425,8 @@ const AddOrder = () => {
     const fetchBusinessDetails = async () => {
       if (!formData.business_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}`
+        const res = await API.get(
+          `/api/business/${formData.business_id}`
         );
         setSelectedBusiness(res.data?.data || null);
       } catch (err) {
@@ -442,8 +443,8 @@ const AddOrder = () => {
     const fetchBusinessSpecialPrices = async () => {
       if (!formData.business_id) return;
       try {
-        const res = await axios.get(
-          `https://britishquilting.fastranking.cloud/api/business/${formData.business_id}/special-prices-new`
+        const res = await API.get(
+          `/api/business/${formData.business_id}/special-prices-new`
         );
         setSpecialBusinessPrices(res.data?.data || []);
       } catch (err) {
@@ -871,16 +872,17 @@ const AddOrder = () => {
     e.preventDefault();
     const updatedFormData = { ...formData };
 
-    // ─── BASIC VALIDATIONS ─────────────────────────────────────
+
     if (!updatedFormData.order?.order_date) {
-      alert("Order Date is required.");
+      toast.error("Order Date is required.");
       return;
     }
 
     if (updatedFormData.business_id && !selectedCustomerId) {
-      alert("Customer is required when business is selected.");
+      toast.error("Customer is required when business is selected.");
       return;
     }
+
 
     const hasAtLeastOneProduct = updatedFormData.items.some(
       (item) =>
@@ -890,12 +892,12 @@ const AddOrder = () => {
     );
 
     if (!hasAtLeastOneProduct) {
-      alert("Please fill all product fields before submitting.");
+      toast.error("Please choose atleast one product before submitting.");
       return;
     }
 
     if (!updatedFormData.order?.payment_method) {
-      alert("Payment Method is required.");
+      toast.error("Payment Method is required.");
       return;
     }
 
@@ -1015,14 +1017,14 @@ const AddOrder = () => {
     }
 
     // ─── Submit ───────────────────────────────────────────────
-    axios
+    API
       .post(
-        "https://britishquilting.fastranking.cloud/api/new-order-new-latest",
+        "/api/new-order-new-latest",
         finalPayload
       )
       .then((res) => {
         if (res.status === 200 || res.status === 201) {
-          alert("Order submitted successfully!");
+           toast.success('Order Placed Successfully!');
 
           // Reset form
           setFormData({
@@ -1166,7 +1168,7 @@ const AddOrder = () => {
 
               <div className="flex flex-col gap-1 ">
                 <label htmlFor="name_selector" className="text-sm font-[600]">
-                  Business or Contact Name
+                  Business or Contact Name <span className="text-red-500">*</span>
                 </label>
 
                 <Select
@@ -1187,7 +1189,7 @@ const AddOrder = () => {
 
               <div className="flex flex-col gap-1">
                 <label htmlFor="order_date" className="text-sm font-[500]">
-                  Order Date
+                  Order Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -1733,7 +1735,7 @@ const AddOrder = () => {
                                         Discount
                                       </label>
                                       <input
-                                        type="number"
+                                        type="number"order date
                                         name="discount"
                                         value={
                                           editedBusinessSpecialPrice[item.id]
@@ -2255,7 +2257,7 @@ const AddOrder = () => {
                             className="text-sm font-[500]"
                             htmlFor={`product_name_${index}`}
                           >
-                            Product Name List
+                            Product Name List <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
                             {/* <select
@@ -2713,7 +2715,7 @@ const AddOrder = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div className="mt-5 flex flex-col gap-1">
                   <label htmlFor="Product Code" className="text-sm font-[600]">
-                    Payment Method
+                    Payment Method <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { asset } from "../../../assets/asset.js";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../../api/API.jsx";
 
 const CustomerDisplay = () => {
   const [data, setData] = useState([]);
@@ -39,8 +39,8 @@ const CustomerDisplay = () => {
   useEffect(() => {
     const getData = async () => {
       try {
-        const api = await axios.get(
-          "https://britishquilting.fastranking.cloud/api/customers"
+        const api = await API.get(
+          "/api/customers"
         );
         console.log("Fetched data:", api.data.data);
         setData(api.data.data);
@@ -368,7 +368,7 @@ const CustomerDisplay = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] cursor-pointer">
+                {/* <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] cursor-pointer">
                   Import
                 </button>
                 <button className="font-[600] text-[#4B215F] rounded-[4px] border-1 border-[#4B215F] bg-white text-[12px] lg:text-[14px] py-2 px-4 h-[35px] lg:h-[40px] flex items-center gap-1 cursor-pointer">
@@ -387,7 +387,7 @@ const CustomerDisplay = () => {
                     />
                   </svg>
                   Export
-                </button>
+                </button> */}
                 <button
                   onClick={handleNavigate}
                   className="font-[600] text-white rounded-[4px] bg-[#4B215F] text-[12px] lg:text-[14px] py-2 px-4 lg:h-[40px] flex items-center gap-1 cursor-pointer"

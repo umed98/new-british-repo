@@ -1,7 +1,7 @@
 //Working Properly
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../../../api/API";
 
 export default function Uploadpro() {
   // Product state
@@ -222,8 +222,8 @@ const addVariant = () => {
     });
 
     try {
-      const response = await axios.post(
-        "https://britishquilting.fastranking.cloud/api/upload-product",
+      const response = await API.post(
+        "/api/upload-product",
         formData,
         {
           headers: {
@@ -243,8 +243,8 @@ const addVariant = () => {
   const [brands, setBrands] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/brands")
+    API
+      .get("/api/brands")
       .then((response) => {
         if (response.data.status) {
           setBrands(response.data.data);
@@ -264,8 +264,8 @@ const addVariant = () => {
   const [selectedSubSubCategory, setSelectedSubSubCategory] = useState(null);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/category-new")
+    API
+      .get("/api/category-new")
       .then((response) => {
         if (response.data.status) {
           setCategories(response.data.data); // data is already in tree format
@@ -310,8 +310,8 @@ const addVariant = () => {
   const [colors, setColors] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/colors")
+    API
+      .get("/api/colors")
       .then((response) => {
         if (response.data.status) {
           setColors(response.data.data);
@@ -328,8 +328,8 @@ const addVariant = () => {
   const [sizes, setSizes] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.cloud/api/sizes")
+    API
+      .get("/api/sizes")
       .then((response) => {
         if (response.data.status) {
           setSizes(response.data.data);
