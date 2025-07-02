@@ -88,6 +88,8 @@ const AddOrder = () => {
     {}
   );
 
+  console.log(selectedVariant , "varinat data");
+
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
     API
@@ -864,14 +866,21 @@ const AddOrder = () => {
         : [...prev, id];
       return newIds;
     });
-    // Trigger calculation immediately after state update
+
+    // If checking (not unchecking), set quantity to 1 if not set and trigger calculation
+    if (!selectedBusinessSpecialPriceIds.includes(id)) {
+      const item = specialBusinessPrices.find((sp) => sp.id === id);
+      if (item) {
+        handleBusinessSpecialPriceChange("quantity", 1, item);
+      }
+    }
+
     setTimeout(() => updateOrderTotals(), 100);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const updatedFormData = { ...formData };
-
 
     if (!updatedFormData.order?.order_date) {
       toast.error("Order Date is required.");
@@ -883,6 +892,23 @@ const AddOrder = () => {
       return;
     }
 
+    // ─── ADDRESS VALIDATION ─────────────────────────────
+    // Billing address: either selected (billingAddress) or filled in Add Addresses
+    const billingFilled = formData.billing_addresses && formData.billing_addresses.length > 0 &&
+      Object.values(formData.billing_addresses[0]).every(val => val && val.trim() !== "");
+    const hasBilling = billingAddress || billingFilled;
+    if (!hasBilling) {
+      toast.error("Billing address is required.");
+      return;
+    }
+    // Shipping address: either selected (shippingAddress) or filled in Add Addresses
+    const shippingFilled = formData.shipping_addresses && formData.shipping_addresses.length > 0 &&
+      Object.values(formData.shipping_addresses[0]).every(val => val && val.trim() !== "");
+    const hasShipping = shippingAddress || shippingFilled;
+    if (!hasShipping) {
+      toast.error("Shipping address is required.");
+      return;
+    }
 
     const hasAtLeastOneProduct = updatedFormData.items.some(
       (item) =>
@@ -892,7 +918,7 @@ const AddOrder = () => {
     );
 
     if (!hasAtLeastOneProduct) {
-      toast.error("Please choose atleast one product before submitting.");
+      toast.error("Something is missing in variants.");
       return;
     }
 
@@ -963,18 +989,20 @@ const AddOrder = () => {
             edited.special_price ?? item.special_price ?? 0
           );
           const quantity = parseFloat(edited.quantity ?? item.quantity ?? 0);
-          const discount = parseFloat(
-            edited.variant_discount ?? item.variant_discount ?? 0
-          );
-          const total_price = quantity * (special_price - discount);
-          transformedOrderItems.push({
-            variant_id: item.variant_id,
-            meter_range_id: item.meter_range_id || null,
-            quantity,
-            price_per_unit: special_price,
-            discount_applied: discount,
-            total_price,
-          });
+          if (quantity >= 1) {
+            const discount = parseFloat(
+              edited.variant_discount ?? item.variant_discount ?? 0
+            );
+            const total_price = quantity * (special_price - discount);
+            transformedOrderItems.push({
+              variant_id: item.variant_id,
+              meter_range_id: item.meter_range_id || null,
+              quantity,
+              price_per_unit: special_price,
+              discount_applied: discount,
+              total_price,
+            });
+          }
         }
       });
     }
@@ -1216,42 +1244,42 @@ const AddOrder = () => {
                   <ul className="space-y-2">
                     <li>
                       <strong>First Name:</strong>{" "}
-                      {selectedCustomer.first_name || "N/A"}
+                      {selectedCustomer.customer.first_name || "N/A"}
                     </li>
                     <li>
                       <strong>Middle Name:</strong>{" "}
-                      {selectedCustomer.middle_name || "N/A"}
+                      {selectedCustomer.customer.middle_name || "N/A"}
                     </li>
                     <li>
                       <strong>Last Name:</strong>{" "}
-                      {selectedCustomer.last_name || "N/A"}
+                      {selectedCustomer.customer.last_name || "N/A"}
                     </li>
                     <li>
-                      <strong>Email:</strong> {selectedCustomer.email || "N/A"}
+                      <strong>Email:</strong> {selectedCustomer.customer.email || "N/A"}
                     </li>
                     <li>
-                      <strong>Phone:</strong> {selectedCustomer.phone || "N/A"}
+                      <strong>Phone:</strong> {selectedCustomer.customer.phone || "N/A"}
                     </li>
                     <li>
                       <strong>Mobile:</strong>{" "}
-                      {selectedCustomer.mobile || "N/A"}
+                      {selectedCustomer.customer.mobile || "N/A"}
                     </li>
                     <li>
                       <strong>Date of Birth:</strong>{" "}
-                      {selectedCustomer.dob || "N/A"}
+                      {selectedCustomer.customer.dob || "N/A"}
                     </li>
                     <li>
                       <strong>Status:</strong>{" "}
-                      {selectedCustomer.is_active ? "Active" : "Inactive"}
+                      {selectedCustomer.customer.is_active ? "Active" : "Inactive"}
                     </li>
                   </ul>
 
                   {/* Address Info */}
                   {(() => {
-                    const billing = selectedCustomer.addresses?.find(
+                    const billing = selectedCustomer.customer.addresses?.find(
                       (addr) => addr.pivot?.type === "billing"
                     );
-                    const shipping = selectedCustomer.addresses?.find(
+                    const shipping = selectedCustomer.customer.addresses?.find(
                       (addr) => addr.pivot?.type === "shipping"
                     );
 
@@ -1379,6 +1407,7 @@ const AddOrder = () => {
                                                   item
                                                 )
                                               }
+                                              placeholder="quantity"
                                               className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                             />
                                           </div>
@@ -1735,8 +1764,7 @@ const AddOrder = () => {
                                         Discount
                                       </label>
                                       <input
-                                        type="number"order date
-                                        name="discount"
+                                        type="number"
                                         value={
                                           editedBusinessSpecialPrice[item.id]
                                             ?.variant_discount ??
@@ -1774,6 +1802,7 @@ const AddOrder = () => {
                                             item
                                           )
                                         }
+                                        placeholder="quantity"
                                         className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
                                       />
                                     </div>

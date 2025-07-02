@@ -4,7 +4,7 @@ import { useAuthContext } from "../../../context/AuthContext";
 import { toast } from "react-toastify";
 import API from "../../../api/API";
 
-const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const emailRegex = /^(?!.*\.\.)(?!.*\.$)[A-Za-z0-9](?:[A-Za-z0-9._%+-]{0,63}[A-Za-z0-9])?@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z]{2,})+$/;
 const alphaNumRegex = /^[A-Za-z0-9 ]*$/;
 const phoneRegex = /^\d{0,11}$/;
 const postalCodeRegex = /^[A-Za-z0-9 ]*$/;
@@ -14,6 +14,10 @@ const AddCustomer = () => {
   const [notHasBusiness, setNotHasBusiness] = useState(false);
 
   const { username } = useAuthContext();
+
+  // State for 'Same as Billing Address' checkboxes
+  const [customerSameAsBilling, setCustomerSameAsBilling] = useState(false);
+  const [businessSameAsBilling, setBusinessSameAsBilling] = useState(false);
 
   const [formData, setFormData] = useState({
     created_by: "",
@@ -135,8 +139,7 @@ const AddCustomer = () => {
   }, [formData.customer_special_pricing.length]);
 
   useEffect(() => {
-    API
-      .get("/api/products")
+    API.get("/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -146,8 +149,7 @@ const AddCustomer = () => {
   }, []);
 
   useEffect(() => {
-    API
-      .get("/api/meter-ranges")
+    API.get("/api/meter-ranges")
       .then((res) => {
         if (res.data.status && Array.isArray(res.data.data)) {
           setMeterRanges(res.data.data);
@@ -157,6 +159,68 @@ const AddCustomer = () => {
         console.error("Failed to fetch meter ranges", err);
       });
   }, []);
+
+  // Effect: Copy customer billing to shipping if checkbox is checked, clear if unchecked
+  useEffect(() => {
+    if (customerSameAsBilling) {
+      setFormData((prev) => ({
+        ...prev,
+        customer_details: {
+          ...prev.customer_details,
+          shipping_addresses: prev.customer_details.billing_addresses.map(
+            (addr) => ({ ...addr })
+          ),
+        },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        customer_details: {
+          ...prev.customer_details,
+          shipping_addresses: prev.customer_details.shipping_addresses.map(
+            () => ({
+              address_line_1: "",
+              address_line_2: "",
+              city: "",
+              postal_code: "",
+              country: "",
+            })
+          ),
+        },
+      }));
+    }
+  }, [customerSameAsBilling, formData.customer_details.billing_addresses]);
+
+  // Effect: Copy business billing to shipping if checkbox is checked, clear if unchecked
+  useEffect(() => {
+    if (businessSameAsBilling) {
+      setFormData((prev) => ({
+        ...prev,
+        business_details: {
+          ...prev.business_details,
+          shipping_addresses: prev.business_details.billing_addresses.map(
+            (addr) => ({ ...addr })
+          ),
+        },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        business_details: {
+          ...prev.business_details,
+          shipping_addresses: prev.business_details.shipping_addresses.map(
+            () => ({
+              address_line_1: "",
+              address_line_2: "",
+              city: "",
+              postal_code: "",
+              country: "",
+            })
+          ),
+        },
+      }));
+    }
+  }, [businessSameAsBilling, formData.business_details.billing_addresses]);
 
   const handleEditToggle = (productIndex, variantIndex) => {
     setEditVariants((prev) => ({
@@ -450,13 +514,29 @@ const AddCustomer = () => {
         error = "Business name must be alphanumeric (no special characters).";
       }
     }
+
+    if (
+      field === "first_name" ||
+      field === "middle_name" ||
+      field === "last_name"
+    ) {
+      if (!alphaNumRegex.test(value)) {
+        error = "First name must be alphanumeric (no special characters).";
+      }
+    }
+
     // Business Phone Numbers (exactly 11 digits, but only if not empty)
     if (
       section === "business_details" &&
-      ["b_phone_number", "alternate_b_phone_number", "b_mobile_number", "alternate_b_mobile_number"].includes(field)
+      [
+        "b_phone_number",
+        "alternate_b_phone_number",
+        "b_mobile_number",
+        "alternate_b_mobile_number",
+      ].includes(field)
     ) {
-      if (value && value.length !== 11) {
-        error = "Must be exactly 11 digits.";
+      if (value && value.length < 9) {
+        error = "Must have 9-11 digits.";
       }
     }
     // Business Emails
@@ -480,15 +560,20 @@ const AddCustomer = () => {
     // Customer Phone Numbers (exactly 11 digits, but only if not empty)
     if (
       section === "customer_details" &&
-      ["phone_number", "alternate_phone_number", "mobile_number", "alternate_mobile_number"].includes(field)
+      [
+        "phone_number",
+        "alternate_phone_number",
+        "mobile_number",
+        "alternate_mobile_number",
+      ].includes(field)
     ) {
-      if (value && value.length !== 11) {
-        error = "Must be exactly 11 digits.";
+      if (value && value.length < 9) {
+        error = "Must have 9-11 digits.";
       }
     }
     // Postal Codes (Business & Customer, Billing & Shipping)
     if (
-      (field === "postal_code") &&
+      field === "postal_code" &&
       (section === "business_details" || section === "customer_details")
     ) {
       if (value && !postalCodeRegex.test(value)) {
@@ -510,49 +595,126 @@ const AddCustomer = () => {
     return error;
   };
 
+  // Helper to check if an address is filled
+  const isAddressFilled = (address) => {
+    return (
+      address.address_line_1.trim() !== "" &&
+      address.city.trim() !== "" &&
+      address.postal_code.trim() !== "" &&
+      address.country.trim() !== ""
+    );
+  };
+
   // Validate all fields on submit
   const validateAllFields = () => {
-    let valid = true;
     // Business fields
     if (!notHasBusiness) {
       const b = formData.business_details;
-      if (validateField("business_details", "business_name", b.business_name)) valid = false;
-      ["b_phone_number", "alternate_b_phone_number", "b_mobile_number", "alternate_b_mobile_number"].forEach((f) => {
-        if (validateField("business_details", f, b[f])) valid = false;
+      if (validateField("business_details", "business_name", b.business_name))
+        return false;
+      [
+        "b_phone_number",
+        "alternate_b_phone_number",
+        "b_mobile_number",
+        "alternate_b_mobile_number",
+      ].forEach((f) => {
+        if (validateField("business_details", f, b[f])) return false;
       });
       ["business_email", "alt_business_email"].forEach((f) => {
-        if (validateField("business_details", f, b[f])) valid = false;
+        if (validateField("business_details", f, b[f])) return false;
       });
       // Business postal codes
       b.billing_addresses.forEach((addr, i) => {
-        if (validateField("business_details", "postal_code", addr.postal_code, "billing_addresses", i)) valid = false;
+        if (
+          validateField(
+            "business_details",
+            "postal_code",
+            addr.postal_code,
+            "billing_addresses",
+            i
+          )
+        )
+          return false;
       });
       b.shipping_addresses.forEach((addr, i) => {
-        if (validateField("business_details", "postal_code", addr.postal_code, "shipping_addresses", i)) valid = false;
+        if (
+          validateField(
+            "business_details",
+            "postal_code",
+            addr.postal_code,
+            "shipping_addresses",
+            i
+          )
+        )
+          return false;
       });
+      // Require business billing address
+      if (!isAddressFilled(b.billing_addresses[0])) {
+        toast.error("Business Billing Address is required.");
+        return false;
+      }
+      // Require business shipping address
+      if (!isAddressFilled(b.shipping_addresses[0])) {
+        toast.error("Business Shipping Address is required.");
+        return false;
+      }
+    } else {
+      // Customer billing address required
+      const c = formData.customer_details;
+      if (!isAddressFilled(c.billing_addresses[0])) {
+        toast.error("Customer Billing Address is required.");
+        return false;
+      }
+      // Customer shipping address required
+      if (!isAddressFilled(c.shipping_addresses[0])) {
+        toast.error("Customer Shipping Address is required.");
+        return false;
+      }
     }
     // Customer fields
     const c = formData.customer_details;
-    ["phone_number", "alternate_phone_number", "mobile_number", "alternate_mobile_number"].forEach((f) => {
-      if (validateField("customer_details", f, c[f])) valid = false;
+    [
+      "phone_number",
+      "alternate_phone_number",
+      "mobile_number",
+      "alternate_mobile_number",
+    ].forEach((f) => {
+      if (validateField("customer_details", f, c[f])) return false;
     });
     ["email", "alt_email"].forEach((f) => {
-      if (validateField("customer_details", f, c[f])) valid = false;
+      if (validateField("customer_details", f, c[f])) return false;
     });
     // Customer postal codes
     c.billing_addresses.forEach((addr, i) => {
-      if (validateField("customer_details", "postal_code", addr.postal_code, "billing_addresses", i)) valid = false;
+      if (
+        validateField(
+          "customer_details",
+          "postal_code",
+          addr.postal_code,
+          "billing_addresses",
+          i
+        )
+      )
+        return false;
     });
     c.shipping_addresses.forEach((addr, i) => {
-      if (validateField("customer_details", "postal_code", addr.postal_code, "shipping_addresses", i)) valid = false;
+      if (
+        validateField(
+          "customer_details",
+          "postal_code",
+          addr.postal_code,
+          "shipping_addresses",
+          i
+        )
+      )
+        return false;
     });
-    return valid;
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateAllFields()) {
-      toast.error("Please fix the validation errors before submitting.");
       return;
     }
 
@@ -636,7 +798,8 @@ const AddCustomer = () => {
       })
       .filter(Boolean); // Remove nulls
 
-    dataToSend.customer_special_pricing = filteredSpecialPricing.length > 0 ? filteredSpecialPricing : [];
+    dataToSend.customer_special_pricing =
+      filteredSpecialPricing.length > 0 ? filteredSpecialPricing : [];
 
     // Add business_special_pricing (empty for now, can be implemented later)
     dataToSend.business_special_pricing = [];
@@ -669,7 +832,9 @@ const AddCustomer = () => {
         alternate_b_mobile_number;
 
       if (!hasBusinessContact) {
-        toast.error("Please provide at least one contact number in the Business section.");
+        toast.error(
+          "Please provide at least one contact number in the Business section."
+        );
         return;
       }
     } else {
@@ -677,37 +842,42 @@ const AddCustomer = () => {
     }
 
     const {
+      first_name,
       phone_number,
       mobile_number,
       alternate_phone_number,
       alternate_mobile_number,
     } = dataToSend.customer_details;
 
+    const hasName = first_name;
     const hasCustomerContact =
       phone_number ||
       mobile_number ||
       alternate_phone_number ||
       alternate_mobile_number;
 
+    if (!hasName) {
+      toast.error("First Name is required in Customer Section.");
+      return;
+    }
     if (!hasCustomerContact) {
-      toast.error("Please provide at least one contact number in the Customer section.");
+      toast.error(
+        "Please provide at least one contact number in the Customer section."
+      );
       return;
     }
 
     console.log("Final payload:", JSON.stringify(dataToSend, null, 2));
 
     try {
-      const response = await API.post(
-        "/api/new-customer-latest",
-        dataToSend
-      );
+      const response = await API.post("/api/new-customer-latest", dataToSend);
 
       if (
         response.status === 200 ||
         response.status === 201 ||
         response.data?.success === true
       ) {
-        toast.success("Customer Created Successfully!")
+        toast.success("Customer Created Successfully!");
         navigate("/customer-display");
       } else {
         const errorMessage =
@@ -744,21 +914,21 @@ const AddCustomer = () => {
   };
   // Helper for paste events (alphanumeric)
   const handleAlphaNumPaste = (e) => {
-    const pasted = e.clipboardData.getData('text');
+    const pasted = e.clipboardData.getData("text");
     if (!/^[A-Za-z0-9 ]*$/.test(pasted)) {
       e.preventDefault();
     }
   };
   // Helper for paste events (numbers)
   const handleNumberPaste = (e) => {
-    const pasted = e.clipboardData.getData('text');
+    const pasted = e.clipboardData.getData("text");
     if (!/^\d{0,11}$/.test(pasted)) {
       e.preventDefault();
     }
   };
   // Helper for paste events (postal code)
   const handlePostalCodePaste = (e) => {
-    const pasted = e.clipboardData.getData('text');
+    const pasted = e.clipboardData.getData("text");
     if (!/^[A-Za-z0-9 ]*$/.test(pasted)) {
       e.preventDefault();
     }
@@ -871,12 +1041,22 @@ const AddCustomer = () => {
                       id="business_name"
                       placeholder="Enter business name"
                       value={formData.business_details.business_name}
-                      onChange={(e) => handleInputChange("business_details", "business_name", e.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "business_name",
+                          e.target.value.replace(/[^A-Za-z0-9 ]/g, "")
+                        )
+                      }
                       onKeyPress={handleAlphaNumInput}
                       onPaste={handleAlphaNumPaste}
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.business_name"] && <span className="text-red-500 text-xs">{validationErrors["business_details.business_name"]}</span>}
+                    {validationErrors["business_details.business_name"] && (
+                      <span className="text-red-500 text-xs">
+                        {validationErrors["business_details.business_name"]}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <label
@@ -1015,7 +1195,11 @@ const AddCustomer = () => {
                       }
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.business_email"] && <span className="text-red-500 text-xs">{validationErrors["business_details.business_email"]}</span>}
+                    {validationErrors["business_details.business_email"] && (
+                      <span className="text-red-500 text-xs">
+                        {validationErrors["business_details.business_email"]}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <label
@@ -1039,7 +1223,17 @@ const AddCustomer = () => {
                       }
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.alt_business_email"] && <span className="text-red-500 text-xs">{validationErrors["business_details.alt_business_email"]}</span>}
+                    {validationErrors[
+                      "business_details.alt_business_email"
+                    ] && (
+                      <span className="text-red-500 text-xs">
+                        {
+                          validationErrors[
+                            "business_details.alt_business_email"
+                          ]
+                        }
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
@@ -1057,13 +1251,28 @@ const AddCustomer = () => {
                       id="b_phone_number"
                       placeholder="Enter business phone number"
                       value={formData.business_details.b_phone_number}
-                      onChange={(e) => handleInputChange("business_details", "b_phone_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                      onKeyPress={(e) => handleNumberInput(e, formData.business_details.b_phone_number)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "b_phone_number",
+                          e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                        )
+                      }
+                      onKeyPress={(e) =>
+                        handleNumberInput(
+                          e,
+                          formData.business_details.b_phone_number
+                        )
+                      }
                       onPaste={handleNumberPaste}
                       maxLength={11}
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.b_phone_number"] && <span className="text-red-500 text-xs">{validationErrors["business_details.b_phone_number"]}</span>}
+                    {validationErrors["business_details.b_phone_number"] && (
+                      <span className="text-red-500 text-xs">
+                        {validationErrors["business_details.b_phone_number"]}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <label
@@ -1078,13 +1287,34 @@ const AddCustomer = () => {
                       id="alternate_b_phone_number"
                       placeholder="Enter alternate business phone number"
                       value={formData.business_details.alternate_b_phone_number}
-                      onChange={(e) => handleInputChange("business_details", "alternate_b_phone_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                      onKeyPress={(e) => handleNumberInput(e, formData.business_details.alternate_b_phone_number)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "alternate_b_phone_number",
+                          e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                        )
+                      }
+                      onKeyPress={(e) =>
+                        handleNumberInput(
+                          e,
+                          formData.business_details.alternate_b_phone_number
+                        )
+                      }
                       onPaste={handleNumberPaste}
                       maxLength={11}
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.alternate_b_phone_number"] && <span className="text-red-500 text-xs">{validationErrors["business_details.alternate_b_phone_number"]}</span>}
+                    {validationErrors[
+                      "business_details.alternate_b_phone_number"
+                    ] && (
+                      <span className="text-red-500 text-xs">
+                        {
+                          validationErrors[
+                            "business_details.alternate_b_phone_number"
+                          ]
+                        }
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <label
@@ -1100,13 +1330,28 @@ const AddCustomer = () => {
                       id="b_mobile_number"
                       placeholder="Enter business mobile number"
                       value={formData.business_details.b_mobile_number}
-                      onChange={(e) => handleInputChange("business_details", "b_mobile_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                      onKeyPress={(e) => handleNumberInput(e, formData.business_details.b_mobile_number)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "b_mobile_number",
+                          e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                        )
+                      }
+                      onKeyPress={(e) =>
+                        handleNumberInput(
+                          e,
+                          formData.business_details.b_mobile_number
+                        )
+                      }
                       onPaste={handleNumberPaste}
                       maxLength={11}
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.b_mobile_number"] && <span className="text-red-500 text-xs">{validationErrors["business_details.b_mobile_number"]}</span>}
+                    {validationErrors["business_details.b_mobile_number"] && (
+                      <span className="text-red-500 text-xs">
+                        {validationErrors["business_details.b_mobile_number"]}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <label
@@ -1120,15 +1365,42 @@ const AddCustomer = () => {
                       name="alternate_b_mobile_number"
                       id="alternate_b_mobile_number"
                       placeholder="Enter alternate business mobile number"
-                      value={formData.business_details.alternate_b_mobile_number}
-                      onChange={(e) => handleInputChange("business_details", "alternate_b_mobile_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                      onKeyPress={(e) => handleNumberInput(e, formData.business_details.alternate_b_mobile_number)}
+                      value={
+                        formData.business_details.alternate_b_mobile_number
+                      }
+                      onChange={(e) =>
+                        handleInputChange(
+                          "business_details",
+                          "alternate_b_mobile_number",
+                          e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                        )
+                      }
+                      onKeyPress={(e) =>
+                        handleNumberInput(
+                          e,
+                          formData.business_details.alternate_b_mobile_number
+                        )
+                      }
                       onPaste={handleNumberPaste}
                       maxLength={11}
                       className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                     />
-                    {validationErrors["business_details.alternate_b_mobile_number"] && <span className="text-red-500 text-xs">{validationErrors["business_details.alternate_b_mobile_number"]}</span>}
+                    {validationErrors[
+                      "business_details.alternate_b_mobile_number"
+                    ] && (
+                      <span className="text-red-500 text-xs">
+                        {
+                          validationErrors[
+                            "business_details.alternate_b_mobile_number"
+                          ]
+                        }
+                      </span>
+                    )}
                   </div>
+                </div>
+                <div className="text-red-500 mt-2 text-sm font-[500]">
+                  Note: Atleast One Phone/Mobile number is required for
+                  business.
                 </div>
 
                 {/* Address Details start*/}
@@ -1142,7 +1414,7 @@ const AddCustomer = () => {
                         htmlFor="address_line_1"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 1<span className="text-red-500"></span>
+                        Address Line 1 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1171,7 +1443,7 @@ const AddCustomer = () => {
                         htmlFor="address_line_2"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 2<span className="text-red-500"></span>
+                        Address Line 2 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1201,7 +1473,7 @@ const AddCustomer = () => {
                         htmlFor="city"
                         className="font-[500] text-gray-700"
                       >
-                        City<span className="text-red-500"></span>
+                        City <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1228,7 +1500,7 @@ const AddCustomer = () => {
                         htmlFor="postal_code"
                         className="font-[500] text-gray-700"
                       >
-                        Postal Code<span className="text-red-500"></span>
+                        Postal Code <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1238,19 +1510,37 @@ const AddCustomer = () => {
                           formData.business_details.billing_addresses[0]
                             .postal_code
                         }
-                        onChange={(e) => handleNestedAddressChange("business_details", "billing_addresses", 0, "postal_code", e.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "billing_addresses",
+                            0,
+                            "postal_code",
+                            e.target.value.replace(/[^A-Za-z0-9 ]/g, "")
+                          )
+                        }
                         onKeyPress={handlePostalCodeInput}
                         onPaste={handlePostalCodePaste}
                         className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                       />
-                      {validationErrors["business_details.billing_addresses.0.postal_code"] && <span className="text-red-500 text-xs">{validationErrors["business_details.billing_addresses.0.postal_code"]}</span>}
+                      {validationErrors[
+                        "business_details.billing_addresses.0.postal_code"
+                      ] && (
+                        <span className="text-red-500 text-xs">
+                          {
+                            validationErrors[
+                              "business_details.billing_addresses.0.postal_code"
+                            ]
+                          }
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <label
                         htmlFor="country"
                         className="font-[500] text-gray-700"
                       >
-                        Country<span className="text-red-500"></span>
+                        Country <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1283,7 +1573,7 @@ const AddCustomer = () => {
                         htmlFor="address_line_1"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 1<span className="text-red-500"></span>
+                        Address Line 1 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1311,7 +1601,7 @@ const AddCustomer = () => {
                         htmlFor="address_line_2"
                         className="font-[500] text-gray-700"
                       >
-                        Address Line 2<span className="text-red-500"></span>
+                        Address Line 2 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1340,7 +1630,7 @@ const AddCustomer = () => {
                         htmlFor="city"
                         className="font-[500] text-gray-700"
                       >
-                        City<span className="text-red-500"></span>
+                        City <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1367,7 +1657,7 @@ const AddCustomer = () => {
                         htmlFor="postal_code"
                         className="font-[500] text-gray-700"
                       >
-                        Postal Code<span className="text-red-500"></span>
+                        Postal Code <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1377,7 +1667,15 @@ const AddCustomer = () => {
                           formData.business_details.shipping_addresses[0]
                             .postal_code
                         }
-                        onChange={(e) => handleNestedAddressChange("business_details", "shipping_addresses", 0, "postal_code", e.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+                        onChange={(e) =>
+                          handleNestedAddressChange(
+                            "business_details",
+                            "shipping_addresses",
+                            0,
+                            "postal_code",
+                            e.target.value.replace(/[^A-Za-z0-9 ]/g, "")
+                          )
+                        }
                         onKeyPress={handlePostalCodeInput}
                         onPaste={handlePostalCodePaste}
                         className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
@@ -1388,7 +1686,7 @@ const AddCustomer = () => {
                         htmlFor="country"
                         className="font-[500] text-gray-700"
                       >
-                        Country<span className="text-red-500"></span>
+                        Country <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1411,6 +1709,22 @@ const AddCustomer = () => {
                       />
                     </div>
                   </div>
+                {/* Same as Billing Address checkbox for business */}
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="business_same_as_billing"
+                    checked={businessSameAsBilling}
+                    onChange={(e) => setBusinessSameAsBilling(e.target.checked)}
+                    className="accent-[#4B215F] cursor-pointer"
+                  />
+                  <label
+                    htmlFor="business_same_as_billing"
+                    className="text-sm font-medium text-[#4B215F]"
+                  >
+                    Same as Billing Address
+                  </label>
+                </div>
                 </div>
                 {/* Address Details ends*/}
               </div>
@@ -1419,7 +1733,7 @@ const AddCustomer = () => {
 
             {/* Customer Info Start */}
             <div className="px-8 pt-4 pb-8 border-b-1 border-gray-300">
-              <h2 className="text-[22px] font-[600] pt-4">Customer Details</h2>
+              <h2 className="text-[22px] font-[600] pt-4">Contact Details</h2>
               <div className="w-full grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="title" className="font-[500] text-gray-700">
@@ -1470,7 +1784,7 @@ const AddCustomer = () => {
                     htmlFor="first_name"
                     className="font-[500] text-gray-700"
                   >
-                    First Name<span className="text-red-500"></span>
+                    First Name<span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1552,7 +1866,11 @@ const AddCustomer = () => {
                     placeholder="Enter your email"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.email"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.email"]}</span>}
+                  {validationErrors["customer_details.email"] && (
+                    <span className="text-red-500 text-xs">
+                      {validationErrors["customer_details.email"]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="price" className="font-[500] text-gray-700">
@@ -1562,11 +1880,21 @@ const AddCustomer = () => {
                     type="email"
                     name="alt_email"
                     value={formData.customer_details.alt_email}
-                    onChange={(e) => handleInputChange("customer_details", "alt_email", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "alt_email",
+                        e.target.value
+                      )
+                    }
                     placeholder="Enter your alt. email"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.alt_email"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.alt_email"]}</span>}
+                  {validationErrors["customer_details.alt_email"] && (
+                    <span className="text-red-500 text-xs">
+                      {validationErrors["customer_details.alt_email"]}
+                    </span>
+                  )}
                 </div>
                 <div className=" flex flex-col gap-2">
                   <label htmlFor="dob" className="font-[500] text-gray-700">
@@ -1645,14 +1973,29 @@ const AddCustomer = () => {
                     name="phone_number"
                     id="phone_number"
                     value={formData.customer_details.phone_number}
-                    onChange={(e) => handleInputChange("customer_details", "phone_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                    onKeyPress={(e) => handleNumberInput(e, formData.customer_details.phone_number)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "phone_number",
+                        e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                      )
+                    }
+                    onKeyPress={(e) =>
+                      handleNumberInput(
+                        e,
+                        formData.customer_details.phone_number
+                      )
+                    }
                     onPaste={handleNumberPaste}
                     maxLength={11}
                     placeholder="Enter phone number"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.phone_number"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.phone_number"]}</span>}
+                  {validationErrors["customer_details.phone_number"] && (
+                    <span className="text-red-500 text-xs">
+                      {validationErrors["customer_details.phone_number"]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label
@@ -1666,14 +2009,35 @@ const AddCustomer = () => {
                     name="alternate_phone_number"
                     id="alternate_phone_number"
                     value={formData.customer_details.alternate_phone_number}
-                    onChange={(e) => handleInputChange("customer_details", "alternate_phone_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                    onKeyPress={(e) => handleNumberInput(e, formData.customer_details.alternate_phone_number)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "alternate_phone_number",
+                        e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                      )
+                    }
+                    onKeyPress={(e) =>
+                      handleNumberInput(
+                        e,
+                        formData.customer_details.alternate_phone_number
+                      )
+                    }
                     onPaste={handleNumberPaste}
                     maxLength={11}
                     placeholder="Enter alternate phone number"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.alternate_phone_number"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.alternate_phone_number"]}</span>}
+                  {validationErrors[
+                    "customer_details.alternate_phone_number"
+                  ] && (
+                    <span className="text-red-500 text-xs">
+                      {
+                        validationErrors[
+                          "customer_details.alternate_phone_number"
+                        ]
+                      }
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label
@@ -1687,14 +2051,29 @@ const AddCustomer = () => {
                     name="mobile_number"
                     id="mobile_number"
                     value={formData.customer_details.mobile_number}
-                    onChange={(e) => handleInputChange("customer_details", "mobile_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                    onKeyPress={(e) => handleNumberInput(e, formData.customer_details.mobile_number)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "mobile_number",
+                        e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                      )
+                    }
+                    onKeyPress={(e) =>
+                      handleNumberInput(
+                        e,
+                        formData.customer_details.mobile_number
+                      )
+                    }
                     onPaste={handleNumberPaste}
                     maxLength={11}
                     placeholder="Enter mobile number"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.mobile_number"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.mobile_number"]}</span>}
+                  {validationErrors["customer_details.mobile_number"] && (
+                    <span className="text-red-500 text-xs">
+                      {validationErrors["customer_details.mobile_number"]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label
@@ -1708,15 +2087,39 @@ const AddCustomer = () => {
                     name="alternate_mobile_number"
                     id="alternate_mobile_number"
                     value={formData.customer_details.alternate_mobile_number}
-                    onChange={(e) => handleInputChange("customer_details", "alternate_mobile_number", e.target.value.replace(/[^\d]/g, "").slice(0, 11))}
-                    onKeyPress={(e) => handleNumberInput(e, formData.customer_details.alternate_mobile_number)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "customer_details",
+                        "alternate_mobile_number",
+                        e.target.value.replace(/[^\d]/g, "").slice(0, 11)
+                      )
+                    }
+                    onKeyPress={(e) =>
+                      handleNumberInput(
+                        e,
+                        formData.customer_details.alternate_mobile_number
+                      )
+                    }
                     onPaste={handleNumberPaste}
                     maxLength={11}
                     placeholder="Enter alternate mobile number"
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.alternate_mobile_number"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.alternate_mobile_number"]}</span>}
+                  {validationErrors[
+                    "customer_details.alternate_mobile_number"
+                  ] && (
+                    <span className="text-red-500 text-xs">
+                      {
+                        validationErrors[
+                          "customer_details.alternate_mobile_number"
+                        ]
+                      }
+                    </span>
+                  )}
                 </div>
+              </div>
+              <div className="text-red-500 text-sm font-[500] mt-2">
+                Note: Atleast One Phone/Mobile number is required for contact.
               </div>
               <div className="flex flex-col gap-2 mt-5">
                 <label className="text-sm font-[500]" htmlFor="Comment">
@@ -2035,10 +2438,9 @@ const AddCustomer = () => {
                                                             meterRange.min_meters
                                                           }
                                                           m
-                                                          {
-                                                            meterRange.max_meters ? ` - ${meterRange.max_meters}m`  : ""
-                                                          }
-                                                          
+                                                          {meterRange.max_meters
+                                                            ? ` - ${meterRange.max_meters}m`
+                                                            : ""}
                                                         </span>
                                                       </label>
 
@@ -2111,7 +2513,12 @@ const AddCustomer = () => {
                     htmlFor="address_line_1"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 1<span className="text-red-500"></span>
+                    Address Line 1{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2139,7 +2546,12 @@ const AddCustomer = () => {
                     htmlFor="address_line_2"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 2<span className="text-red-500"></span>
+                    Address Line 2{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2165,7 +2577,12 @@ const AddCustomer = () => {
               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="city" className="font-[500] text-gray-700">
-                    City<span className="text-red-500"></span>
+                    City{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2190,7 +2607,12 @@ const AddCustomer = () => {
                     htmlFor="postal_code"
                     className="font-[500] text-gray-700"
                   >
-                    Postal Code <span className="text-red-500"></span>
+                    Postal Code{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2199,16 +2621,39 @@ const AddCustomer = () => {
                     value={
                       formData.customer_details.billing_addresses[0].postal_code
                     }
-                    onChange={(e) => handleNestedAddressChange("customer_details", "billing_addresses", 0, "postal_code", e.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "billing_addresses",
+                        0,
+                        "postal_code",
+                        e.target.value.replace(/[^A-Za-z0-9 ]/g, "")
+                      )
+                    }
                     onKeyPress={handlePostalCodeInput}
                     onPaste={handlePostalCodePaste}
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
                   />
-                  {validationErrors["customer_details.billing_addresses.0.postal_code"] && <span className="text-red-500 text-xs">{validationErrors["customer_details.billing_addresses.0.postal_code"]}</span>}
+                  {validationErrors[
+                    "customer_details.billing_addresses.0.postal_code"
+                  ] && (
+                    <span className="text-red-500 text-xs">
+                      {
+                        validationErrors[
+                          "customer_details.billing_addresses.0.postal_code"
+                        ]
+                      }
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="country" className="font-[500] text-gray-700">
-                    Country<span className="text-red-500"></span>
+                    Country{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2239,7 +2684,12 @@ const AddCustomer = () => {
                     htmlFor="address_line_1"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 1<span className="text-red-500"></span>
+                    Address Line 1{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2267,7 +2717,12 @@ const AddCustomer = () => {
                     htmlFor="address_line_2"
                     className="font-[500] text-gray-700"
                   >
-                    Address Line 2<span className="text-red-500"></span>
+                    Address Line 2{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2293,7 +2748,12 @@ const AddCustomer = () => {
               <div className="w-full grid xl:grid-cols-3 md:grid-cols-2 grid-cols-1 pt-5 gap-6 ">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="city" className="font-[500] text-gray-700">
-                    City<span className="text-red-500"></span>
+                    City{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2318,7 +2778,12 @@ const AddCustomer = () => {
                     htmlFor="postal_code"
                     className="font-[500] text-gray-700"
                   >
-                    Postal Code<span className="text-red-500"></span>
+                    Postal Code{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2328,7 +2793,15 @@ const AddCustomer = () => {
                       formData.customer_details.shipping_addresses[0]
                         .postal_code
                     }
-                    onChange={(e) => handleNestedAddressChange("customer_details", "shipping_addresses", 0, "postal_code", e.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+                    onChange={(e) =>
+                      handleNestedAddressChange(
+                        "customer_details",
+                        "shipping_addresses",
+                        0,
+                        "postal_code",
+                        e.target.value.replace(/[^A-Za-z0-9 ]/g, "")
+                      )
+                    }
                     onKeyPress={handlePostalCodeInput}
                     onPaste={handlePostalCodePaste}
                     className="py-2 px-4 border-1 border-[#C5C5C5] rounded-[8px] placeholder:text-[#969696] w-[100%]"
@@ -2336,7 +2809,12 @@ const AddCustomer = () => {
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="country" className="font-[500] text-gray-700">
-                    Country<span className="text-red-500"></span>
+                    Country{" "}
+                    {notHasBusiness ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      ""
+                    )}
                   </label>
                   <input
                     type="text"
@@ -2358,6 +2836,22 @@ const AddCustomer = () => {
                   />
                 </div>
               </div>
+            {/* Same as Billing Address checkbox for customer */}
+            <div className="flex items-center gap-2 mt-4">
+              <input
+                type="checkbox"
+                id="customer_same_as_billing"
+                checked={customerSameAsBilling}
+                onChange={(e) => setCustomerSameAsBilling(e.target.checked)}
+                className="accent-[#4B215F] cursor-pointer"
+              />
+              <label
+                htmlFor="customer_same_as_billing"
+                className="text-sm font-medium text-[#4B215F]"
+              >
+                Same as Billing Address
+              </label>
+            </div>
             </div>
             {/* Address Details ends*/}
 

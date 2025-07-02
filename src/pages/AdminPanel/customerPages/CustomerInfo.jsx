@@ -428,24 +428,35 @@ const CustomerInfo = () => {
               No payment methods available.
             </div>
           ) : (
+            <>
+            <div className="flex gap-4">
+             <strong className="text-gray-900 font-[600]">Type:</strong>{" "}
+             <div>
+            {
             customer.payment_methods.map((pm, index) => (
               <div key={index}>
                 <div className="text-violet-900 font-[600]">
-                  <strong className="text-gray-900 font-[600]">Type:</strong>{" "}
+                 
                   {pm.type}
                 </div>
                 {/* Add other payment method fields here */}
               </div>
             ))
+            }
+            </div>
+            </div>
+            </>
           )}
         </div>
       </div>
+      <div className="w-full flex justify-end">
       <button
         onClick={handleAddOrder}
-        className="mt-6 px-6 py-3 bg-violet-700 hover:bg-violet-800 text-white rounded-[8px] font-semibold cursor-pointer"
+        className="mt-6 px-6 py-3 bg-violet-900 hover:bg-violet-700 text-white rounded-[8px] font-semibold cursor-pointer"
       >
         Add New Order
       </button>
+      </div>
     </div>
   );
 };

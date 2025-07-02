@@ -193,11 +193,11 @@ const OrderDetailNew = () => {
                         </div>
                         <div className="flex gap-2  mt-1">
                            <h2 className="font-[600] text-gray-600">Price per Unit:</h2>
-                           <h3 className="font-[600]">${item.price_per_unit}</h3>
+                           <h3 className="font-[600]">£{item.price_per_unit}</h3>
                         </div>
                         <div className="flex gap-2  mt-1">
                            <h2 className="font-[600] text-gray-600">Total Price:</h2>
-                           <h3 className="font-[600]">${item.total_price}</h3>
+                           <h3 className="font-[600]">£{item.total_price}</h3>
                         </div>
                      </div>
                   ))}

@@ -1175,6 +1175,24 @@ const AddOrderAuto = () => {
       delete finalPayload.shipping_id;
     }
 
+    // ─── ADDRESS VALIDATION ─────────────────────────────
+    // Billing address: either selected (billingAddress) or filled in Add Addresses
+    const billingFilled = formData.billing_addresses && formData.billing_addresses.length > 0 &&
+      Object.values(formData.billing_addresses[0]).every(val => val && val.trim() !== "");
+    const hasBilling = billingAddress || billingFilled;
+    if (!hasBilling) {
+      toast.error("Billing address is required.");
+      return;
+    }
+    // Shipping address: either selected (shippingAddress) or filled in Add Addresses
+    const shippingFilled = formData.shipping_addresses && formData.shipping_addresses.length > 0 &&
+      Object.values(formData.shipping_addresses[0]).every(val => val && val.trim() !== "");
+    const hasShipping = shippingAddress || shippingFilled;
+    if (!hasShipping) {
+      toast.error("Shipping address is required.");
+      return;
+    }
+
     // ─── Submit ───────────────────────────────────────────────
     API
       .post(
@@ -1377,7 +1395,7 @@ const AddOrderAuto = () => {
               {customer && (
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold mb-2 text-gray-800">
-                    Customer Details
+                    Contact Details
                   </h2>
                   <div className="space-y-1 text-sm">
                     <p>
