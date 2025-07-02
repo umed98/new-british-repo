@@ -123,6 +123,33 @@ const AddOrderAuto = () => {
     {}
   );
 
+  // 1. Add state for checked variants and variant inputs
+  const [variantInputs, setVariantInputs] = useState({});
+  const [checkedVariants, setCheckedVariants] = useState({});
+
+  // 2. Add handlers for checkbox and variant input changes
+  const handleVariantInputChange = (itemIdx, variantId, field, value) => {
+    setVariantInputs((prev) => ({
+      ...prev,
+      [itemIdx]: {
+        ...(prev[itemIdx] || {}),
+        [variantId]: {
+          ...(prev[itemIdx]?.[variantId] || {}),
+          [field]: value,
+        },
+      },
+    }));
+  };
+  const handleVariantCheckbox = (itemIdx, variantId) => {
+    setCheckedVariants((prev) => ({
+      ...prev,
+      [itemIdx]: {
+        ...(prev[itemIdx] || {}),
+        [variantId]: !(prev[itemIdx] || {})[variantId],
+      },
+    }));
+  };
+
   // Auto-populate addresses if selected addresses are available
   useEffect(() => {
     if (selectedAddresses && selectedAddresses.length > 0) {
@@ -250,8 +277,7 @@ const AddOrderAuto = () => {
 
   // ─── 4) FETCH INITIAL PRODUCT OPTIONS ──────────────────────────────────────
   useEffect(() => {
-    API
-      .get("/api/products")
+    API.get("/api/products")
       .then((res) => {
         if (res.data.success) {
           setProductOptions(res.data.products);
@@ -516,8 +542,7 @@ const AddOrderAuto = () => {
     }));
 
     if (selectedType === "b2b") {
-      API
-        .get("/api/businesses")
+      API.get("/api/businesses")
         .then((res) => {
           if (res.data.status) {
             setBusinessList(res.data.data);
@@ -525,8 +550,7 @@ const AddOrderAuto = () => {
         })
         .catch((err) => console.error(err));
     } else if (selectedType === "b2c") {
-      API
-        .get("/api/customers")
+      API.get("/api/customers")
         .then((res) => {
           if (res.data.status) {
             setCustomers(res.data.data);
@@ -547,9 +571,7 @@ const AddOrderAuto = () => {
     const fetchCustomerDetails = async () => {
       if (!formData.customer_id) return;
       try {
-        const res = await API.get(
-          `/api/customer/${formData.customer_id}`
-        );
+        const res = await API.get(`/api/customer/${formData.customer_id}`);
         setSelectedCustomer(res.data?.data || null);
       } catch (err) {
         console.error("Failed to fetch customer details:", err);
@@ -585,9 +607,7 @@ const AddOrderAuto = () => {
     const fetchBusinessDetails = async () => {
       if (!formData.business_id) return;
       try {
-        const res = await API.get(
-          `/api/business/${formData.business_id}`
-        );
+        const res = await API.get(`/api/business/${formData.business_id}`);
         setSelectedBusiness(res.data?.data || null);
       } catch (err) {
         console.error("Failed to fetch business details:", err);
@@ -1043,20 +1063,58 @@ const AddOrderAuto = () => {
       return;
     }
 
-    const hasAtLeastOneProduct = updatedFormData.items.some(
-      (item) =>
-        item.variant_id?.toString().trim() !== "" &&
-        item.meter_range_id?.toString().trim() !== "" &&
-        item.quantity?.toString().trim() !== ""
-    );
+    // Build transformedOrderItems ONLY from checked variants with valid input
+    let transformedOrderItems = [];
+    formData.items.forEach((item, itemIdx) => {
+      if (productVariants[itemIdx]) {
+        productVariants[itemIdx].forEach((variant) => {
+          const input = variantInputs[itemIdx]?.[variant.id];
+          if (
+            checkedVariants[itemIdx]?.[variant.id] && // Only if checked
+            input &&
+            input.quantity &&
+            parseInt(input.quantity) > 0 &&
+            (!variant.use_meter_pricing ||
+              (input.meter_range_id && input.meter_range_id !== ""))
+          ) {
+            // Get price/discount from meter range if needed
+            let price_per_unit = variant.price;
+            let discount_applied = variant.discount;
+            let meter_range_id = null;
+            if (variant.use_meter_pricing && input.meter_range_id) {
+              const meter = variant.meter_pricing.find(
+                (mp) => mp.meter_range_id == input.meter_range_id
+              );
+              if (meter) {
+                price_per_unit = meter.price;
+                discount_applied = meter.discount;
+                meter_range_id = meter.meter_range_id;
+              }
+            }
+            const quantity = parseInt(input.quantity);
+            const total_price =
+              (parseFloat(price_per_unit) - parseFloat(discount_applied)) *
+              quantity;
+            transformedOrderItems.push({
+              variant_id: variant.id,
+              meter_range_id,
+              quantity,
+              price_per_unit,
+              discount_applied,
+              total_price,
+            });
+          }
+        });
+      }
+    });
 
-     if (!hasAtLeastOneProduct) {
-      toast.error("Please choose atleast one product before submitting.");
+    if (!transformedOrderItems.length) {
+      toast.error("Please choose at least one product before submitting.");
       return;
     }
 
     if (!updatedFormData.order?.payment_method) {
-      alert("Payment Method is required.");
+      toast.error("Payment Method is required.");
       return;
     }
 
@@ -1069,23 +1127,6 @@ const AddOrderAuto = () => {
     }
 
     // ─── TRANSFORM ITEMS ───────────────────────────────────────
-    let transformedOrderItems = updatedFormData.items.map((item, index) => {
-      const variant = selectedVariant[index] || {};
-      const price_per_unit = parseFloat(item.price_per_unit || 0);
-      const discount_applied = parseFloat(item.discount_applied || 0);
-      const quantity = parseInt(item.quantity || 0);
-      const total_price = (price_per_unit - discount_applied) * quantity;
-      return {
-        type: item.type,
-        variant_id: item.variant_id,
-        quantity,
-        meter_range_id: item.meter_range_id,
-        price_per_unit,
-        discount_applied,
-        total_price,
-      };
-    });
-
     // Add selected special prices (customer)
     if (selectedSpecialPriceIds.length > 0) {
       selectedSpecialPriceIds.forEach((id) => {
@@ -1141,17 +1182,40 @@ const AddOrderAuto = () => {
     // ─── Compute Grand Total ────────────────────────────────
     // Use values from formData.order that are calculated by updateOrderTotals
 
+    const total_amount = transformedOrderItems.reduce(
+      (sum, item) => sum + parseFloat(item.total_price || 0),
+      0
+    );
+    const vat_percentage = 20;
+    const vat_amount = parseFloat(
+      ((total_amount * vat_percentage) / 100).toFixed(2)
+    );
+    const delivery_amount = 0;
+    const payable_amount = parseFloat(
+      (total_amount + vat_amount + delivery_amount).toFixed(2)
+    );
+    const grossAmount = transformedOrderItems.reduce(
+      (sum, item) =>
+        sum +
+        parseFloat(item.price_per_unit || 0) * parseFloat(item.quantity || 0),
+      0
+    );
+    const order_discount_amount = parseFloat(
+      (grossAmount - total_amount).toFixed(2)
+    );
+
+    // Use these values in the payload
     const finalPayload = {
       ...updatedFormData,
       order: {
         order_date: updatedFormData.order.order_date,
         status: updatedFormData.order.status,
-        total_amount: formData.order.total_amount,
-        order_discount_amount: formData.order.order_discount_amount,
-        vat_percentage: formData.order.vat_percentage,
-        vat_amount: formData.order.vat_amount,
-        delivery_amount: formData.order.delivery_amount,
-        payable_amount: formData.order.payable_amount,
+        total_amount,
+        order_discount_amount,
+        vat_percentage,
+        vat_amount,
+        delivery_amount,
+        payable_amount,
         payment_method: updatedFormData.order.payment_method,
         payment_status: updatedFormData.order.payment_status,
         source: updatedFormData.order.source,
@@ -1177,16 +1241,24 @@ const AddOrderAuto = () => {
 
     // ─── ADDRESS VALIDATION ─────────────────────────────
     // Billing address: either selected (billingAddress) or filled in Add Addresses
-    const billingFilled = formData.billing_addresses && formData.billing_addresses.length > 0 &&
-      Object.values(formData.billing_addresses[0]).every(val => val && val.trim() !== "");
+    const billingFilled =
+      formData.billing_addresses &&
+      formData.billing_addresses.length > 0 &&
+      Object.values(formData.billing_addresses[0]).every(
+        (val) => val && val.trim() !== ""
+      );
     const hasBilling = billingAddress || billingFilled;
     if (!hasBilling) {
       toast.error("Billing address is required.");
       return;
     }
     // Shipping address: either selected (shippingAddress) or filled in Add Addresses
-    const shippingFilled = formData.shipping_addresses && formData.shipping_addresses.length > 0 &&
-      Object.values(formData.shipping_addresses[0]).every(val => val && val.trim() !== "");
+    const shippingFilled =
+      formData.shipping_addresses &&
+      formData.shipping_addresses.length > 0 &&
+      Object.values(formData.shipping_addresses[0]).every(
+        (val) => val && val.trim() !== ""
+      );
     const hasShipping = shippingAddress || shippingFilled;
     if (!hasShipping) {
       toast.error("Shipping address is required.");
@@ -1194,14 +1266,10 @@ const AddOrderAuto = () => {
     }
 
     // ─── Submit ───────────────────────────────────────────────
-    API
-      .post(
-        "/api/new-order-new-latest",
-        finalPayload
-      )
+    API.post("/api/new-order-new-latest", finalPayload)
       .then((res) => {
         if (res.status === 200 || res.status === 201) {
-          toast.success('Order Placed Successfully!');
+          toast.success("Order Placed Successfully!");
 
           // Reset form
           setFormData({
@@ -1351,7 +1419,7 @@ const AddOrderAuto = () => {
 
                 <Select
                   isSearchable={false}
-                  menuIsOpen={false} 
+                  menuIsOpen={false}
                   className=" text-sm cursor-pointer outline-none appearance-none"
                   options={options}
                   value={selectedOption}
@@ -1364,7 +1432,6 @@ const AddOrderAuto = () => {
                     option: (base) => ({ ...base, cursor: "pointer" }),
                   }}
                   placeholder="Select Business or Contact"
-                  
                 />
               </div>
 
@@ -1516,7 +1583,8 @@ const AddOrderAuto = () => {
 
                                   <div className="flex-1">
                                     <p>
-                                      <strong>Variant ID:</strong> {item.variant_id}
+                                      <strong>Variant ID:</strong>{" "}
+                                      {item.variant_id}
                                     </p>
                                     <p>
                                       <strong>Special Price:</strong> £
@@ -2383,15 +2451,16 @@ const AddOrderAuto = () => {
               <div className="flex flex-col gap-5">
                 {formData.items.map((product, index) => (
                   <div key={index} className="flex flex-col gap-6 w-full mt-6">
-                    <div className="flex items-end justify-between gap-5">
-                      <div className="flex gap-5">
-                        {/* Left: Product Dropdown */}
+                    <div className="flex flex-col justify-between gap-5">
+                      <div className="w-[30%]">
+                        {/* Product Dropdown */}
                         <div className="w-full min-w-[250px] flex flex-col gap-2">
                           <label
                             className="text-sm font-[500]"
                             htmlFor={`product_name_${index}`}
                           >
-                            Product Name List
+                            Product Name List{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
                             <Select
@@ -2422,383 +2491,244 @@ const AddOrderAuto = () => {
                             />
                           </div>
                         </div>
-
-                        {productVariants[index] &&
-                          productVariants[index].length > 0 && (
-                            <div className="flex items-end gap-2 mt-2">
-                              {productVariants[index].map((variant) => (
-                                <button
-                                  key={variant.id}
-                                  type="button"
-                                  className={`px-3 py-2 rounded text-sm ${
-                                    selectedVariant[index]?.id === variant.id
-                                      ? "bg-blue-600 text-white"
-                                      : "bg-gray-200"
-                                  }`}
-                                  onClick={() =>
-                                    setSelectedVariant((prev) => ({
-                                      ...prev,
-                                      [index]: variant,
-                                    }))
-                                  }
-                                >
-                                  {variant.color_name ||
-                                    variant.sku ||
-                                    `Variant ${variant.id}`}
-                                </button>
-                              ))}
-                            </div>
-                          )}
                       </div>
-
-                      {formData.items.length > 1 && index !== 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="bg-red-400 rounded-md font-[500] py-2 px-4 w-24 text-white hover:underline hover:bg-red-600 text-sm cursor-pointer"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    {selectedVariant[index] && (
-                      <div className="w-full flex flex-col gap-2 bg-gray-50 p-4 rounded border">
-                        <p className="font-semibold mb-1">Variant Details:</p>
-
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-4">
-                            <p className="flex flex-col gap-1">
-                              <strong className="text-sm">Color:</strong>{" "}
-                              <input
-                                type="text"
-                                value={selectedVariant[index].color_name || ""}
-                                className="w-24 py-1 px-4 border border-gray-400 rounded bg-white"
-                                readOnly
-                              />
-                            </p>
-
-                            {/*--------------------------------------------------------- Meter Dropdown ---------------------------------------------------------*/}
-                            <div className="">
-                              <div className="flex items-end flex-wrap gap-6">
-                                {/* Meter Range Section */}
-                                <div className="flex flex-col gap-1">
-                                  {/* Show message when no meter options available */}
-                                  {/* {(!meterOptions[index] || meterOptions[index].length === 0) && (
-                                    <span className="text-sm text-gray-500 min-w-[200px]">
-                                      {selectedVariant[index]?.use_meter_pricing === false 
-                                        ? "" 
-                                        : ""}
-                                    </span>
-                                  )} */}
-
-                                  {/* Selected Range Label */}
-                                  {selection[index]?.meter_range_id != null &&
-                                    meterOptions[index]?.length > 0 &&
-                                    (() => {
-                                      const selectedRange = meterOptions[
-                                        index
-                                      ]?.find(
-                                        (o) =>
-                                          o.meter_rangeid ===
-                                          selection[index].meter_range_id
-                                      );
-                                      return (
-                                        selectedRange && (
-                                          <span className="text-sm text-gray-600 min-w-[200px]">
-                                            Range:{" "}
-                                            <strong>
-                                              {selectedRange.range_label}
-                                            </strong>{" "}
-                                            ({selectedRange.min_meters}m -{" "}
-                                            {selectedRange.max_meters}m)
-                                          </span>
-                                        )
-                                      );
-                                    })()}
-
-                                  {/* Dropdown - Only show if meter options exist */}
-
-                                  {meterOptions[index] &&
-                                    meterOptions[index].length > 0 && (
-                                      <div className="relative">
-                                        <select
-                                          className="bg-white rounded  appearance-none px-2 py-1 w-52 border"
-                                          value={
-                                            selection[index]?.meter_range_id ??
-                                            ""
-                                          }
-                                          onChange={(e) =>
-                                            handleSelectionChange(
-                                              index,
-                                              "meter_range_id",
-                                              parseInt(e.target.value)
-                                            )
-                                          }
-                                        >
-                                          <option value="">
-                                            Select Meter Range
-                                          </option>
-                                          {meterOptions[index]?.map((opt) => (
-                                            <option
-                                              key={opt.meter_range_id}
-                                              value={opt.meter_range_id}
-                                            >
-                                              {opt.range_label} (
-                                              {opt.min_meters}m -{" "}
-                                              {opt.max_meters}m)
-                                            </option>
-                                          ))}
-                                        </select>
-                                        {/* Custom dropdown arrow */}
-                                        <div className="pointer-events-none absolute inset-y-0 -top-0 -right-1 flex items-center px-3 text-gray-500">
-                                          <svg
-                                            className="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            viewBox="0 0 24 24"
+                      {productVariants[index] &&
+                        productVariants[index].length > 0 && (
+                          <div className="flex flex-col gap-4">
+                            {productVariants[index].map((variant) => {
+                              const input =
+                                variantInputs[index]?.[variant.id] || {};
+                              let price = "";
+                              let discount = "";
+                              let meter_range_id = null;
+                              if (variant.use_meter_pricing) {
+                                if (input.meter_range_id) {
+                                  const meter = variant.meter_pricing.find(
+                                    (mp) =>
+                                      mp.meter_range_id == input.meter_range_id
+                                  );
+                                  if (meter) {
+                                    price = meter.price;
+                                    discount = meter.discount;
+                                    meter_range_id = meter.meter_range_id;
+                                  }
+                                }
+                              } else {
+                                price = variant.price;
+                                discount = variant.discount;
+                              }
+                              const quantity = parseInt(input.quantity) || 0;
+                              const totalPrice =
+                                quantity > 0
+                                  ? (parseFloat(price) - parseFloat(discount)) *
+                                    quantity
+                                  : 0;
+                              const vatPercentage = 20;
+                              const vatAmount =
+                                (totalPrice * vatPercentage) / 100;
+                              const deliveryAmount = 0;
+                              const payableAmount =
+                                totalPrice + vatAmount + deliveryAmount;
+                              return (
+                                <div
+                                  key={variant.id}
+                                  className="w-full flex flex-row gap-3 bg-gray-50 p-4 rounded border mb-4 items-start"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      !!checkedVariants[index]?.[variant.id]
+                                    }
+                                    onChange={() =>
+                                      handleVariantCheckbox(index, variant.id)
+                                    }
+                                    style={{ marginRight: 8 }}
+                                    className="cursor-pointer"
+                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-sm font-[500]">
+                                      Color
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={variant.color_name || ""}
+                                      readOnly
+                                      className="w-24 py-1 px-4 border border-gray-400 rounded bg-white"
+                                    />
+                                  </div>
+                                  {variant.use_meter_pricing &&
+                                    variant.meter_pricing && (
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-sm font-[500]">
+                                          Meter Range:
+                                        </label>
+                                        <div className="relative cursor-pointer w-52">
+                                          <select
+                                            className="bg-white rounded appearance-none px-2 py-1 w-full border cursor-pointer"
+                                            value={input.meter_range_id || ""}
+                                            onChange={(e) =>
+                                              handleVariantInputChange(
+                                                index,
+                                                variant.id,
+                                                "meter_range_id",
+                                                e.target.value
+                                              )
+                                            }
                                           >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M19 9l-7 7-7-7"
-                                            />
-                                          </svg>
+                                            <option value="">
+                                              Select Meter Range
+                                            </option>
+                                            {variant.meter_pricing.map((mp) => (
+                                              <option
+                                                key={mp.meter_range_id}
+                                                value={mp.meter_range_id}
+                                              >
+                                                {mp.min_meters} -{" "}
+                                                {mp.max_meters}m (₤{mp.price},
+                                                Discount: ₤{mp.discount})
+                                              </option>
+                                            ))}
+                                          </select>
+
+                                          {/* SVG Arrow positioned absolutely */}
+                                          <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-500">
+                                            <svg
+                                              className="w-4 h-4"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeWidth="2"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M19 9l-7 7-7-7"
+                                              />
+                                            </svg>
+                                          </div>
                                         </div>
                                       </div>
                                     )}
-                                </div>
-
-                                {/* Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Price"
-                                  >
-                                    Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`price-${index}`}
-                                    placeholder="price"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                    value={selection[index]?.price || ""}
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "price",
-                                        e.target.value
-                                      )
-                                    }
-                                  />
-                                </div>
-
-                                {/* Discount */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Discount"
-                                  >
-                                    Discount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    id={`discount-${index}`}
-                                    placeholder="discount"
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                    value={selection[index]?.discount || ""}
-                                    onChange={(e) =>
-                                      handleSelectionChange(
-                                        index,
-                                        "discount",
-                                        e.target.value
-                                      )
-                                    }
-                                  />
-                                </div>
-
-                                {/* Quantity Input - Bound to selected range */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Final Price"
-                                  >
-                                    Quantity
-                                  </label>
-                                  {(() => {
-                                    const selectedRange = meterOptions[
-                                      index
-                                    ]?.find(
-                                      (o) =>
-                                        o.id ===
-                                        selection[index]?.meter_range_id
-                                    );
-
-                                    // If no meter options or no range selected, allow any quantity
-                                    const minQty = selectedRange
-                                      ? Math.ceil(
-                                          parseFloat(selectedRange.min_meter)
-                                        )
-                                      : 1; // Default minimum of 1
-                                    const maxQty = selectedRange
-                                      ? Math.floor(
-                                          parseFloat(selectedRange.max_meter)
-                                        )
-                                      : Infinity;
-
-                                    return (
+                                  <div className="flex gap-3">
+                                    <div className="w-28 ">
+                                      <label className="text-sm font-[500]">
+                                        Price
+                                      </label>
                                       <input
                                         type="number"
-                                        className="border border-gray-300 px-2 bg-white py-1 rounded w-20"
-                                        placeholder={`quantity`}
-                                        min={minQty}
-                                        max={maxQty}
-                                        value={formData.items[index].quantity}
-                                        onChange={(e) => {
-                                          const input = e.target.value;
-
-                                          // Allow empty input for smoother typing
-                                          if (
-                                            input === "" ||
-                                            /^\d+$/.test(input)
-                                          ) {
-                                            const updatedItems = [
-                                              ...formData.items,
-                                            ];
-                                            updatedItems[index].quantity =
-                                              input;
-
-                                            // Calculate total price in real-time
-                                            const quantity =
-                                              parseInt(input) || 0;
-                                            const finalPrice =
-                                              parseFloat(
-                                                selection[index]?.finalPrice
-                                              ) || 0;
-                                            const totalPrice =
-                                              quantity * finalPrice;
-
-                                            updatedItems[index].total_price =
-                                              totalPrice;
-
-                                            // Use unified calculation
-                                            updateOrderTotals(updatedItems);
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          let quantity =
-                                            parseInt(e.target.value) || 0;
-
-                                          // Clamp on blur
-                                          if (quantity < minQty)
-                                            quantity = minQty;
-                                          if (quantity > maxQty)
-                                            quantity = maxQty;
-
-                                          const finalPrice =
-                                            parseFloat(
-                                              selection[index]?.finalPrice
-                                            ) || 0;
-                                          const totalPrice =
-                                            quantity * finalPrice;
-
-                                          const updatedItems = [
-                                            ...formData.items,
-                                          ];
-                                          updatedItems[index].quantity =
-                                            quantity;
-                                          updatedItems[index].total_price =
-                                            totalPrice;
-
-                                          // Use unified calculation
-                                          updateOrderTotals(updatedItems);
-                                        }}
+                                        value={price}
+                                        readOnly
+                                        placeholder="price"
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28 "
                                       />
-                                    );
-                                  })()}
+                                    </div>
+                                    <div className="w-28 ">
+                                      <label className="text-sm font-[500]">
+                                        Discount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={discount}
+                                        readOnly
+                                        placeholder="discount"
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28 "
+                                      />
+                                    </div>
+                                    <div className="w-28 ">
+                                      <label className="text-sm font-[500]">
+                                        Quantity
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={input.quantity || ""}
+                                        placeholder="quantity"
+                                        className="border border-gray-300 px-2 bg-white py-1 rounded w-28 "
+                                        onChange={(e) =>
+                                          handleVariantInputChange(
+                                            index,
+                                            variant.id,
+                                            "quantity",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={
+                                          variant.use_meter_pricing &&
+                                          !input.meter_range_id
+                                        }
+                                      />
+                                    </div>
+                                    <div className="w-32 ">
+                                      <label className="text-sm font-[500]">
+                                        Total Price
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={totalPrice || ""}
+                                        readOnly
+                                        placeholder="total price"
+                                        className="border px-2 py-1 border-gray-300 bg-white rounded w-32 "
+                                      />
+                                    </div>
+                                    <div className="w-28 ">
+                                      <label className="text-sm font-[500]">
+                                        VAT %
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={vatPercentage}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28 "
+                                      />
+                                    </div>
+                                    <div className="w-28 ">
+                                      <label className="text-sm font-[500]">
+                                        VAT Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={vatAmount || ""}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-28 "
+                                      />
+                                    </div>
+                                    <div className="w-32 ">
+                                      <label className="text-sm font-[500]">
+                                        Delivery Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={deliveryAmount}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-32 "
+                                      />
+                                    </div>
+                                    <div className="w-36 ">
+                                      <label className="text-sm font-[500]">
+                                        Payable Amount
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={payableAmount || ""}
+                                        readOnly
+                                        className="border bg-white border-gray-300 rounded px-2 py-1 w-36 "
+                                      />
+                                    </div>
+                                  </div>
                                 </div>
-
-                                {/* Total Price */}
-                                <div className="flex flex-col gap-1">
-                                  <label
-                                    className="text-black font-[500] text-sm"
-                                    htmlFor="Total Price"
-                                  >
-                                    Total Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="total price"
-                                    readOnly
-                                    className="border px-2 py-1 border-gray-300 bg-white rounded w-32"
-                                    value={
-                                      formData.items[index].total_price !==
-                                      undefined
-                                        ? formData.items[index].total_price
-                                        : ""
-                                    }
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">
-                                    VAT %
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={formData?.order?.vat_percentage ?? 0}
-                                    readOnly
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">
-                                    VAT Amount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={
-                                      calculateIndividualProductTotals(index)
-                                        .vat_amount
-                                    }
-                                    readOnly
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">
-                                    Delivery Amount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={
-                                      formData?.order?.delivery_amount ?? 0
-                                    }
-                                    readOnly
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">
-                                    Payable Amount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={
-                                      calculateIndividualProductTotals(index)
-                                        .payable_amount
-                                    }
-                                    readOnly
-                                    className="border bg-white border-gray-300 rounded px-2 py-1 w-28"
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                              );
+                            })}
                           </div>
-                        </div>
-                      </div>
+                        )}
+                    </div>
+                    {formData.items.length > 1 && index !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        className="bg-red-400 rounded-md font-[500] py-2 px-4 w-24 text-white hover:underline hover:bg-red-600 text-sm cursor-pointer"
+                      >
+                        Remove
+                      </button>
                     )}
                   </div>
                 ))}

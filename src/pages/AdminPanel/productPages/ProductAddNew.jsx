@@ -1,29 +1,42 @@
 //Working Properly
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../../../api/API.jsx";
+
 
 export default function Uploadpro() {
   // Product state
   const [product, setProduct] = useState({
     product_name: "",
     brand_id: "",
+    supplier_id: "",
+    base_sku: "",
     category_id: "",
-    slug: "",
     description: "",
-    created_by: "",
+    base_price: "",
+    base_discount: "",
+    created_by: "5",
+    is_active: true,
   });
 
   // Variants state: array of variants
   const [variants, setVariants] = useState([
     {
+      sku: "",
       color_id: "",
-      size_id: "",
-      description: "",
+      width_cm: "",
+      stock_qty: "",
+      use_meter_pricing: false,
+      slug: "",
       price: "",
       discount: "",
+      description: "",
       is_active: true,
-      inventory: { quantity: "" },
+      meta_description: "",
+      meta_keywords: "",
+      og_title: "",
+      og_description: "",
+      meter_ranges: [],
       images: [], // files here
     },
   ]);
@@ -33,8 +46,11 @@ export default function Uploadpro() {
 
   // Handlers for product fields
   const handleProductChange = (e) => {
-    const { name, value } = e.target;
-    setProduct((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setProduct((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   // Handlers for variant fields
@@ -42,13 +58,39 @@ export default function Uploadpro() {
     const { name, value, type, checked } = e.target;
     setVariants((prev) => {
       const newVariants = [...prev];
-      if (name === "is_active") {
+      if (name === "is_active" || name === "use_meter_pricing") {
         newVariants[index][name] = checked;
-      } else if (name === "quantity") {
-        newVariants[index].inventory.quantity = value;
       } else {
         newVariants[index][name] = value;
       }
+      return newVariants;
+    });
+  };
+
+  // Meter range handlers
+  const addMeterRange = (variantIdx) => {
+    setVariants((prev) => {
+      const newVariants = [...prev];
+      newVariants[variantIdx].meter_ranges.push({
+        meter_range_id: "",
+        price: "",
+        discount: "",
+      });
+      return newVariants;
+    });
+  };
+  const removeMeterRange = (variantIdx, rangeIdx) => {
+    setVariants((prev) => {
+      const newVariants = [...prev];
+      newVariants[variantIdx].meter_ranges = newVariants[variantIdx].meter_ranges.filter((_, i) => i !== rangeIdx);
+      return newVariants;
+    });
+  };
+  const handleMeterRangeChange = (variantIdx, rangeIdx, e) => {
+    const { name, value } = e.target;
+    setVariants((prev) => {
+      const newVariants = [...prev];
+      newVariants[variantIdx].meter_ranges[rangeIdx][name] = value;
       return newVariants;
     });
   };
@@ -58,13 +100,21 @@ export default function Uploadpro() {
     setVariants((prev) => [
       ...prev,
       {
+        sku: "",
         color_id: "",
-        size_id: "",
-        description: "",
+        width_cm: "",
+        stock_qty: "",
+        use_meter_pricing: false,
+        slug: "",
         price: "",
         discount: "",
+        description: "",
         is_active: true,
-        inventory: { quantity: "" },
+        meta_description: "",
+        meta_keywords: "",
+        og_title: "",
+        og_description: "",
+        meter_ranges: [],
         images: [],
       },
     ]);
@@ -113,28 +163,54 @@ export default function Uploadpro() {
   // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    if (!product.category_id || isNaN(Number(product.category_id))) {
+      alert("Please select a valid category.");
+      return;
+    }
+    if (!product.brand_id || isNaN(Number(product.brand_id)) || Number(product.brand_id) === 0) {
+      alert("Please select a valid brand.");
+      return;
+    }
+    if (!product.created_by || isNaN(Number(product.created_by)) || Number(product.created_by) === 0) {
+      alert("Please enter a valid Created By (User ID).");
+      return;
+    }
+    for (let i = 0; i < variants.length; i++) {
+      if (!variants[i].color_id || isNaN(Number(variants[i].color_id)) || Number(variants[i].color_id) === 0) {
+        alert(`Please select a valid color for variant #${i + 1}.`);
+        return;
+      }
+    }
     // Prepare product data object (cast numbers)
     const productData = {
       ...product,
       brand_id: Number(product.brand_id),
+      supplier_id: Number(product.supplier_id),
       category_id: Number(product.category_id),
+      base_price: Number(product.base_price),
+      base_discount: Number(product.base_discount),
       created_by: Number(product.created_by),
+      is_active: product.is_active ? 1 : 0,
     };
 
-    // Prepare variants data without files
-    // We'll send images separately in formData as files
+    // Prepare variants data
     const variantsData = variants.map((v) => ({
+      ...v,
       color_id: Number(v.color_id),
-      size_id: Number(v.size_id),
-      description: v.description,
+      width_cm: Number(v.width_cm),
+      stock_qty: Number(v.stock_qty),
+      use_meter_pricing: !!v.use_meter_pricing,
       price: Number(v.price),
       discount: Number(v.discount),
       is_active: v.is_active ? 1 : 0,
-      inventory: { quantity: Number(v.inventory.quantity) },
+      meter_ranges: v.meter_ranges.map((mr) => ({
+        meter_range_id: Number(mr.meter_range_id),
+        price: Number(mr.price),
+        discount: Number(mr.discount),
+      })),
       images: v.images.map((_, i) => ({
         order: i + 1,
-        is_primary: i === 0, // first image primary
+        is_primary: i === 0 ? 1 : 0,
       })),
     }));
 
@@ -146,14 +222,14 @@ export default function Uploadpro() {
 
     // Append variant images files by index
     variants.forEach((v, i) => {
-      v.images.forEach((file) => {
-        formData.append(`variant_images[${i}][]`, file);
+      v.images.forEach((imgObj) => {
+        formData.append(`variant_images[${i}][]`, imgObj.file);
       });
     });
 
     try {
-      const response = await axios.post(
-        "https://britishquilting.fastranking.tech/api/upload-product-new",
+      const response = await API.post(
+        "/api/upload-product-new",
         formData,
         {
           headers: {
@@ -173,8 +249,8 @@ export default function Uploadpro() {
   const [brands, setBrands] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.tech/api/brands")
+    API
+      .get("/api/brands")
       .then((response) => {
         if (response.data.status) {
           setBrands(response.data.data);
@@ -191,8 +267,8 @@ export default function Uploadpro() {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.tech/api/category")
+    API
+      .get("/api/category")
       .then((response) => {
         if (response.data.status) {
           setCategories(response.data.data);
@@ -209,8 +285,8 @@ export default function Uploadpro() {
   const [colors, setColors] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.tech/api/colors")
+    API
+      .get("/api/colors")
       .then((response) => {
         if (response.data.status) {
           setColors(response.data.data);
@@ -227,8 +303,8 @@ export default function Uploadpro() {
   const [sizes, setSizes] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("https://britishquilting.fastranking.tech/api/sizes")
+    API
+      .get("/api/sizes")
       .then((response) => {
         if (response.data.status) {
           setSizes(response.data.data);
@@ -263,30 +339,25 @@ export default function Uploadpro() {
               </label>
 
               <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Brand ID</span>
-                {/* <input
-                  type="number"
-                  name="brand_id"
-                  placeholder="Brand ID"
-                  value={product.brand_id}
-                  onChange={handleProductChange}
-                  required
-                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                /> */}
+                <span className=" text-[16px] font-[500]">Brand</span>
                 <div className="relative w-full cursor-pointer">
                   <select
                     name="brand_id"
                     id="brand_id"
+                    value={product.brand_id}
+                    onChange={handleProductChange}
+                    required
                     className="cursor-pointer w-full pr-10 appearance-none bg-white border border-gray-300 rounded-[8px] px-4 py-2"
                   >
-                    <option value="">-- Select Brand --</option>
+                    <option value="" disabled>
+                      -- Select Brand --
+                    </option>
                     {brands.map((brand) => (
                       <option key={brand.id} value={brand.id}>
                         {brand.id} - {brand.brand_name}
                       </option>
                     ))}
                   </select>
-                  {/* Custom dropdown arrow */}
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
                     <svg
                       className="w-4 h-4"
@@ -306,16 +377,83 @@ export default function Uploadpro() {
               </label>
 
               <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Category ID</span>
-                {/* <input
+                <span className=" text-[16px] font-[500]">Supplier ID</span>
+                <input
                   type="number"
-                  name="category_id"
-                  placeholder="Category ID"
-                  value={product.category_id}
+                  name="supplier_id"
+                  placeholder="Supplier ID"
+                  value={product.supplier_id}
                   onChange={handleProductChange}
                   required
                   className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                /> */}
+                />
+              </label>
+
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Base SKU</span>
+                <input
+                  type="text"
+                  name="base_sku"
+                  placeholder="Base SKU"
+                  value={product.base_sku}
+                  onChange={handleProductChange}
+                  required
+                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
+                />
+              </label>
+
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Base Price</span>
+                <input
+                  type="number"
+                  name="base_price"
+                  placeholder="Base Price"
+                  value={product.base_price}
+                  onChange={handleProductChange}
+                  required
+                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
+                />
+              </label>
+
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Base Discount</span>
+                <input
+                  type="number"
+                  name="base_discount"
+                  placeholder="Base Discount"
+                  value={product.base_discount}
+                  onChange={handleProductChange}
+                  required
+                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
+                />
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={product.is_active}
+                  onChange={handleProductChange}
+                  className="mr-2"
+                />
+                <span className=" text-[16px] font-[500]">Is Active</span>
+              </label>
+
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Description</span>
+                <textarea
+                  name="description"
+                  placeholder="Description"
+                  value={product.description}
+                  onChange={handleProductChange}
+                  rows={4}
+                  required
+                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
+                />
+              </label>
+
+              <label htmlFor="" className="flex flex-col gap-2">
+                <span className=" text-[16px] font-[500]">Category</span>
                 <div className="relative w-full">
                   <select
                     name="category_id"
@@ -325,7 +463,7 @@ export default function Uploadpro() {
                     required
                     className=" cursor-pointer block w-full appearance-none border border-gray-300 rounded-[8px] px-4 py-2 pr-10 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="" selected disabled>
+                    <option value="" disabled>
                       -- Select Category --
                     </option>
                     {categories.map((category) => (
@@ -338,8 +476,6 @@ export default function Uploadpro() {
                       </option>
                     ))}
                   </select>
-
-                  {/* Custom dropdown arrow */}
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                     <svg
                       className="w-4 h-4"
@@ -356,45 +492,6 @@ export default function Uploadpro() {
                     </svg>
                   </div>
                 </div>
-              </label>
-
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Slug</span>
-                <input
-                  type="text"
-                  name="slug"
-                  placeholder="Slug"
-                  value={product.slug}
-                  onChange={handleProductChange}
-                  required
-                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
-              </label>
-
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Created By</span>
-                <input
-                  type="number"
-                  name="created_by"
-                  placeholder="Created By (User ID)"
-                  value={product.created_by}
-                  onChange={handleProductChange}
-                  required
-                  className="border-1  border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
-              </label>
-
-              <label htmlFor="" className="flex flex-col gap-2">
-                <span className=" text-[16px] font-[500]">Description</span>
-                <textarea
-                  name="description"
-                  placeholder="Description"
-                  value={product.description}
-                  onChange={handleProductChange}
-                  rows={4}
-                  required
-                  className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696]"
-                />
               </label>
             </div>
           </div>
@@ -442,16 +539,19 @@ export default function Uploadpro() {
 
                 <div className="w-full flex gap-5">
                   <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
-                    <span className=" text-[16px] font-[500]">Color ID</span>
-                    {/* <input
-                      type="number"
-                      name="color_id"
-                      placeholder="Color ID"
-                      value={variant.color_id}
+                    <span className=" text-[16px] font-[500]">SKU</span>
+                    <input
+                      type="text"
+                      name="sku"
+                      placeholder="SKU"
+                      value={variant.sku}
                       onChange={(e) => handleVariantChange(idx, e)}
                       required
                       className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
-                    /> */}
+                    />
+                  </label>
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Color</span>
                     <div className="relative w-full">
                       <select
                         name="color_id"
@@ -460,7 +560,7 @@ export default function Uploadpro() {
                         required
                         className="cursor-pointer appearance-none border border-gray-300 rounded-[8px] py-2 px-4 pr-10 w-full mb-2 bg-white text-gray-700"
                       >
-                        <option value="" selected disabled>
+                        <option value="" disabled>
                           -- Select Color --
                         </option>
                         {colors.map((color) => (
@@ -469,8 +569,6 @@ export default function Uploadpro() {
                           </option>
                         ))}
                       </select>
-
-                      {/* Custom dropdown arrow */}
                       <div className="pointer-events-none absolute inset-y-0 -top-1 right-0 flex items-center px-3 text-gray-500">
                         <svg
                           className="w-4 h-4"
@@ -488,72 +586,136 @@ export default function Uploadpro() {
                       </div>
                     </div>
                   </label>
-
-                  <div htmlFor="" className="flex flex-col gap-2 w-[50%]">
-                    <span className=" text-[16px] font-[500]">Size ID</span>
-                    <div className="relative w-full">
-                      <select
-                        name="size_id"
-                        value={variant.size_id}
-                        onChange={(e) => handleVariantChange(idx, e)}
-                        required
-                        className="cursor-pointer appearance-none border border-gray-300 rounded-[8px] py-2 px-4 pr-10 w-full mb-2 bg-white text-gray-700"
-                      >
-                        <option value="">-- Select Size --</option>
-                        {sizes.map((size) => (
-                          <option key={size.id} value={size.id}>
-                            {size.size_label}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Custom dropdown arrow */}
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </div>
+                </div>
+                <div className="w-full flex gap-5">
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Width (cm)</span>
+                    <input
+                      type="number"
+                      name="width_cm"
+                      placeholder="Width in cm"
+                      value={variant.width_cm}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      required
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 w-[50%]">
+                    <input
+                      type="checkbox"
+                      name="use_meter_pricing"
+                      checked={variant.use_meter_pricing}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="mr-2"
+                    />
+                    <span className=" text-[16px] font-[500]">Use Meter Pricing</span>
+                  </label>
+                </div>
+                <div className="w-full flex gap-5">
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Slug</span>
+                    <input
+                      type="text"
+                      name="slug"
+                      placeholder="Slug"
+                      value={variant.slug}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      required
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Meta Description</span>
+                    <input
+                      type="text"
+                      name="meta_description"
+                      placeholder="Meta Description"
+                      value={variant.meta_description}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                </div>
+                <div className="w-full flex gap-5">
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Meta Keywords</span>
+                    <input
+                      type="text"
+                      name="meta_keywords"
+                      placeholder="Meta Keywords"
+                      value={variant.meta_keywords}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">OG Title</span>
+                    <input
+                      type="text"
+                      name="og_title"
+                      placeholder="OG Title"
+                      value={variant.og_title}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                </div>
+                <div className="w-full flex gap-5">
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">OG Description</span>
+                    <input
+                      type="text"
+                      name="og_description"
+                      placeholder="OG Description"
+                      value={variant.og_description}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
+                    />
+                  </label>
+                  <label htmlFor="" className="flex flex-col gap-2 w-[50%]">
+                    <span className=" text-[16px] font-[500]">Is Active</span>
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={variant.is_active}
+                      onChange={(e) => handleVariantChange(idx, e)}
+                      className="mr-2"
+                    />
+                  </label>
+                </div>
+                {/* Meter Ranges UI */}
+                <div className="w-full mt-2">
+                  <label className="block font-[600] text-[16px] mb-2">Meter Ranges</label>
+                  {variant.meter_ranges.map((range, rangeIdx) => (
+                    <div key={rangeIdx} className="flex gap-2 mb-2 items-center">
+                      <input
+                        type="number"
+                        name="meter_range_id"
+                        placeholder="Meter Range ID"
+                        value={range.meter_range_id}
+                        onChange={(e) => handleMeterRangeChange(idx, rangeIdx, e)}
+                        className="border-1 border-gray-300 rounded-[8px] py-1 px-2 w-24"
+                      />
+                      <input
+                        type="number"
+                        name="price"
+                        placeholder="Price"
+                        value={range.price}
+                        onChange={(e) => handleMeterRangeChange(idx, rangeIdx, e)}
+                        className="border-1 border-gray-300 rounded-[8px] py-1 px-2 w-24"
+                      />
+                      <input
+                        type="number"
+                        name="discount"
+                        placeholder="Discount"
+                        value={range.discount}
+                        onChange={(e) => handleMeterRangeChange(idx, rangeIdx, e)}
+                        className="border-1 border-gray-300 rounded-[8px] py-1 px-2 w-24"
+                      />
+                      <button type="button" onClick={() => removeMeterRange(idx, rangeIdx)} className="bg-red-500 text-white px-2 py-1 rounded">Remove</button>
                     </div>
-                    <div className="flex flex-col gap-4 w-full">
-                      <div className="flex gap-3 w-full items-center">
-                        <span className="font-[500]">xc - </span>
-                        <div className="flex flex-col gap-1">
-                          <input
-                            type="number"
-                            name="size_1"
-                            placeholder="quantity"
-                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
-                          />
-                        </div>
-                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">Remove</button>
-                      </div>
-
-                      <div className="flex gap-3 items-center">
-                        <span className="font-[500]">l - </span>
-                        <div className="flex flex-col gap-1">
-                         
-                          <input
-                            type="number"
-                            name="size_1"
-                             placeholder="quantity"
-                            className="border-1 border-gray-300 px-4 py-2 rounded-[8px]"
-                          />
-                        </div>
-                        <button className="bg-red-500 rounded-[8px] text-white px-4 py-2">Remove</button>
-                      </div>
-                    <button className="text-white bg-green-500 rounded-[8px] py-2 px-6 w-50 font-[500]">Add more size & qty.</button>
-                    </div>
-                  </div>
+                  ))}
+                  <button type="button" onClick={() => addMeterRange(idx)} className="bg-green-500 text-white px-3 py-1 rounded">+ Add Meter Range</button>
                 </div>
 
                 <div className="w-full flex gap-5">
@@ -595,7 +757,7 @@ export default function Uploadpro() {
                         type="number"
                         name="quantity"
                         placeholder="Inventory Quantity"
-                        value={variant.inventory.quantity}
+                        value={variant.stock_qty}
                         onChange={(e) => handleVariantChange(idx, e)}
                         required
                         className="border-1 border-gray-300 rounded-[8px] py-2 px-4 mb-2 w-full placeholder:text-[#969696] bg-white"
