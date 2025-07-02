@@ -755,7 +755,7 @@ export default function Uploadpro() {
                       </span>
                       <input
                         type="number"
-                        name="quantity"
+                        name="stock_qty"
                         placeholder="Inventory Quantity"
                         value={variant.stock_qty}
                         onChange={(e) => handleVariantChange(idx, e)}
